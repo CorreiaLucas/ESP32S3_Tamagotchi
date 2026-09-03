@@ -1,15 +1,14 @@
 #include "DisplayManager.h"
 
 DisplayManager::DisplayManager()
-  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST) {
+  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90){
 }
 
 void DisplayManager::begin() {
   tft.begin();
   tft.setRotation(3);
   tft.fillScreen(TFT_SAGE_GREEN);
-
-  catBuffer.createSprite(90, 90);
+  // petBuffer.createSprite(90, 90);
 }
 
 void DisplayManager::forceFullRedraw(int hunger, int happiness, int energy) {
@@ -66,31 +65,30 @@ void DisplayManager::drawTransparentImage(int x, int y, int width, int height, c
 }
 
 void DisplayManager::drawSprite(int x, int y, int width, int height, const uint16_t* frame) {
-  catBuffer.fillSprite(TFT_SAGE_GREEN);
-
+  petBuffer.fillScreen(TFT_SAGE_GREEN);
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
       uint16_t color = pgm_read_word(&frame[row * width + col]);
       if (color != TFT_BLACK) {
-        catBuffer.drawPixel(col, row, color);
+        petBuffer.drawPixel(col, row, color);
       }
     }
   }
-  catBuffer.pushSprite(x, y);
+  tft.drawRGBBitmap(x, y, petBuffer.getBuffer(), width, height);
 }
 
 void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame) {
-  catBuffer.fillSprite(TFT_SAGE_GREEN);
+  petBuffer.fillScreen(TFT_SAGE_GREEN);
 
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
       uint16_t color = pgm_read_word(&frame[row * width + col]);
       if (color != TFT_BLACK) {
-        catBuffer.drawPixel(width - 1 - col, row, color);
+        petBuffer.drawPixel(width - 1 - col, row, color);
       }
     }
   }
-  catBuffer.pushSprite(x, y);
+  tft.drawRGBBitmap(x, y, petBuffer.getBuffer(), width, height);
 }
 
 void DisplayManager::drawPoops(int count) {
