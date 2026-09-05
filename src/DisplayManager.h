@@ -1,4 +1,24 @@
 #ifndef DISPLAY_MANAGER_H
+#define DISPLAY_MANAGER_H
+
+#include <Adafruit_GFX.h>
+#include <SPI.h>
+
+#define SCREEN_WIDTH  128
+#define SCREEN_HEIGHT 128
+
+#define TFT_CS   10
+#define TFT_DC   13
+#define TFT_RST  14
+#define TFT_MOSI 11
+#define TFT_SCLK 12
+
+#define TFT_BLACK      0x0000
+#define TFT_WHITE      0xFFFF
+#define TFT_RED        0xF800
+#define TFT_BLUE       0x001F
+#define TFT_SAGE_GREEN 0x8E4D  // placeholder — replace with the real value if you know it
+
 #ifdef SIMULATOR_BUILD
   #include <Adafruit_ST7789.h>
   using DisplayDriver = Adafruit_ST7789;
@@ -6,35 +26,11 @@
   #include <Adafruit_SSD1351.h>
   using DisplayDriver = Adafruit_SSD1351;
 #endif
-#define DISPLAY_MANAGER_H
-
-#include <Arduino.h>
-#include "Sprites.h"
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1351.h>
-#include <SPI.h>
-#define SCREEN_WIDTH  128
-#define SCREEN_HEIGHT 128
-
-// pick GPIOs that exist on your Heemol N16R8 board and aren't used elsewhere
-#define TFT_CS   10
-#define TFT_MOSI 11
-#define TFT_SCLK 12
-#define TFT_DC   13
-#define TFT_RST  14
-
-#define TFT_BLACK      0x0000
-#define TFT_WHITE      0xFFFF
-#define TFT_RED        0xF800
-#define TFT_BLUE       0x001F
-#define TFT_SAGE_GREEN 0x8E4D
-
-extern Adafruit_SSD1351 tft;
 
 class DisplayManager {
 private:
-  Adafruit_SSD1351 tft;
-  GFXcanvas16 petBuffer; 
+  DisplayDriver tft;
+  GFXcanvas16 petBuffer;
 public:
   DisplayManager();
   void begin();

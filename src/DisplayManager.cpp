@@ -1,14 +1,22 @@
 #include "DisplayManager.h"
+#include "Sprites.h"
 
 DisplayManager::DisplayManager()
-  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90){
-}
+#ifdef SIMULATOR_BUILD
+  : tft(&SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90)
+#else
+  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90)
+#endif
+{}
 
 void DisplayManager::begin() {
-  tft.begin();
+  #ifdef SIMULATOR_BUILD
+    tft.init(SCREEN_WIDTH, SCREEN_HEIGHT, SPI_MODE3);
+  #else
+    tft.begin();
+  #endif
   tft.setRotation(3);
   tft.fillScreen(TFT_SAGE_GREEN);
-  // petBuffer.createSprite(90, 90);
 }
 
 void DisplayManager::forceFullRedraw(int hunger, int happiness, int energy) {

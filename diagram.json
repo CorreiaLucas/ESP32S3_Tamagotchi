@@ -10,13 +10,7 @@
       "left": 0,
       "attrs": { "flashSize": "16", "psramSize": "8" }
     },
-    {
-      "type": "board-st7789",
-      "id": "lcd",
-      "top": -120,
-      "left": 200,
-      "attrs": {}
-    },
+    { "type": "board-st7789", "id": "lcd", "top": -292.72, "left": -83.3, "attrs": {} },
     {
       "type": "wokwi-pushbutton",
       "id": "btnLeft",
@@ -38,35 +32,25 @@
       "left": 140,
       "attrs": { "color": "red", "label": "RIGHT" }
     },
-    {
-      "type": "wokwi-buzzer",
-      "id": "bz1",
-      "top": 250,
-      "left": 100,
-      "attrs": { "volume": "0.1" }
-    }
+    { "type": "wokwi-buzzer", "id": "bz1", "top": 250, "left": 100, "attrs": { "volume": "0.1" } }
   ],
   "connections": [
-    [ "esp:3V3", "lcd:VCC", "red", [ "v0" ] ],
-	[ "esp:3V3", "lcd:BL", "white", [ "v0" ] ],
-    [ "esp:GND", "lcd:GND", "black", [ "v0" ] ],
+    [ "esp:3V3.1", "lcd:VCC", "red", [ "v0" ] ],
+    [ "esp:3V3.2", "lcd:BL", "green", [ "h0" ] ],
+    [ "esp:GND.1", "lcd:GND", "black", [ "v0" ] ],
     [ "esp:11", "lcd:SDA", "green", [ "v0" ] ],
     [ "esp:12", "lcd:SCL", "yellow", [ "v0" ] ],
     [ "esp:10", "lcd:CS", "orange", [ "v0" ] ],
     [ "esp:13", "lcd:DC", "blue", [ "v0" ] ],
     [ "esp:14", "lcd:RST", "purple", [ "v0" ] ],
-
     [ "esp:4", "btnLeft:1.l", "green", [ "v0" ] ],
-    [ "btnLeft:2.l", "esp:GND", "black", [ "v0" ] ],
-
+    [ "btnLeft:2.l", "esp:GND.2", "black", [ "v0" ] ],
     [ "esp:5", "btnOk:1.l", "blue", [ "v0" ] ],
-    [ "btnOk:2.l", "esp:GND", "black", [ "v0" ] ],
-
+    [ "btnOk:2.l", "esp:GND.3", "black", [ "v0" ] ],
     [ "esp:6", "btnRight:1.l", "red", [ "v0" ] ],
-    [ "btnRight:2.l", "esp:GND", "black", [ "v0" ] ],
-
+    [ "btnRight:2.l", "esp:GND.4", "black", [ "v0" ] ],
     [ "esp:17", "bz1:1", "gray", [ "v0" ] ],
-    [ "bz1:2", "esp:GND", "black", [ "v0" ] ]
+    [ "bz1:2", "esp:GND.1", "black", [ "v0" ] ]
   ],
   "dependencies": {}
 }
