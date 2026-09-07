@@ -16,6 +16,7 @@
 
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 128
+#define UI_BAR_HEIGHT 24
 
 #define TFT_CS   10
 #define TFT_MOSI 11
@@ -28,6 +29,7 @@
 #define TFT_RED        0xF800
 #define TFT_BLUE       0x001F
 #define TFT_SAGE_GREEN 0x8E4D  // placeholder — replace with the real value if you know it
+#define TFT_BEZEL      0x2124  // dark grey "bezel" drawn around the framed 128x128 sim window
 
 #ifdef SIMULATOR_BUILD
   #include <Adafruit_ST7789.h>
@@ -41,6 +43,10 @@ class DisplayManager {
 private:
   DisplayDriver tft;
   GFXcanvas16 petBuffer;
+  // Draw-origin offset. 0 on real hardware; on the Wokwi ST7789 stand-in it
+  // centers the 128x128 UI inside the 240x240 panel (see begin()).
+  int originX = 0;
+  int originY = 0;
 public:
   DisplayManager();
   void begin();

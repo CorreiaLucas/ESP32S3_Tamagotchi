@@ -11,25 +11,35 @@ DisplayManager::DisplayManager()
 
 void DisplayManager::begin() {
   #ifdef SIMULATOR_BUILD
-    // Wokwi ST7789 stand-in. Its native panel is 240x240; we draw our
-    // 128x128 UI into the top-left corner. This lets us validate logic in
-    // simulation before the real SSD1351 hardware arrives.
+    // Wokwi ST7789 stand-in. Its native panel is 240x240, but the real
+    // hardware is a 128x128 SSD1351. To make the simulator visually match
+    // the real device, we frame a CENTERED 128x128 window inside the panel
+    // via a draw-origin offset (originX/originY). Every DisplayManager draw
+    // adds that offset; on real hardware the offset is 0.
     SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
     tft.init(240, 240);
+    originX = (240 - SCREEN_WIDTH) / 2;   // 56
+    originY = (240 - SCREEN_HEIGHT) / 2;  // 56
   #else
-    // Real hardware: Waveshare SSD1351 128x128.
+    // Real hardware: Waveshare SSD1351 128x128. Draw origin is (0,0).
     tft.begin();
+    originX = 0;
+    originY = 0;
   #endif
   // Rotation 2 = 180deg. The Wokwi ST7789 stand-in renders its origin at
   // the opposite corner from what our 128x128 UI layout assumes, so
   // rotation 0 shows everything upside-down. This flips the whole panel.
   tft.setRotation(2);
-  tft.fillScreen(TFT_SAGE_GREEN);
+  #ifdef SIMULATOR_BUILD
+    tft.fillScreen(TFT_BEZEL);   // bezel fills the whole 240x240 panel
+  #else
+    tft.fillScreen(TFT_SAGE_GREEN);
+  #endif
 }
 
 void DisplayManager::drawBackground() {
   // Full-screen 128x128 RGB565 background image.
-  tft.drawRGBBitmap(0, 0, background_data_forest, SCREEN_WIDTH, SCREEN_HEIGHT);
+  tft.drawRGBBitmap( originX +0, originY + 0, background_data_forest, SCREEN_WIDTH, SCREEN_HEIGHT);
 }
 
 void DisplayManager::drawBackgroundRegion(int x, int y, int w, int h) {
@@ -43,7 +53,7 @@ void DisplayManager::drawBackgroundRegion(int x, int y, int w, int h) {
       int sx = x + col;
       if (sx < 0 || sx >= SCREEN_WIDTH) continue;
       uint16_t color = pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx]);
-      tft.drawPixel(sx, sy, color);
+      tft.drawPixel( originX +sx, originY + sy, color);
     }
   }
 }
@@ -63,8 +73,8 @@ void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
   // looking dark panel over it so the white text/bars stay readable on the
   // busy background (matches the menu/settings panel style).
   drawBackgroundRegion(0, 0, SCREEN_WIDTH, 34);
-  tft.fillRoundRect(2, 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
-  tft.drawRoundRect(2, 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
+  tft.fillRoundRect( originX +2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
+  tft.drawRoundRect( originX +2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
   tft.setTextSize(1);
 
   if (hunger <= 20 || happiness <= 20) {
@@ -73,18 +83,18 @@ void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
     tft.setTextColor(TFT_WHITE);
   }
 
-  tft.setCursor(6, 4);
+  tft.setCursor( originX +6, originY + 4);
   tft.printf("H:%d Hap:%d", hunger, happiness);
 
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(6, 16);
+  tft.setCursor( originX +6, originY + 16);
   tft.print("E:");
 
   // Energy bar: label ~12px, bar fills the rest.
-  tft.drawRect(22, 15, 100, 10, TFT_WHITE);
+  tft.drawRect( originX +22, originY + 15, 100, 10, TFT_WHITE);
   int fillWidth = (96 * energy) / 100;
   if (fillWidth > 0) {
-    tft.fillRect(24, 17, fillWidth, 6, TFT_BLUE);
+    tft.fillRect( originX +24, originY + 17, fillWidth, 6, TFT_BLUE);
   }
 }
 
@@ -102,7 +112,7 @@ void DisplayManager::drawTransparentImage(int x, int y, int width, int height, c
     for (int col = 0; col < width; col++) {
       uint16_t color = pgm_read_word(&frame[row * width + col]);
       if (color != transparentColor) {
-        tft.drawPixel(x + col, y + row, color);
+        tft.drawPixel( originX +x + col, originY + y + row, color);
       }
     }
   }
@@ -129,7 +139,7 @@ void DisplayManager::drawSprite(int x, int y, int width, int height, const uint1
       }
     }
   }
-  tft.drawRGBBitmap(x, y, petBuffer.getBuffer(), width, height);
+  tft.drawRGBBitmap( originX +x, originY + y, petBuffer.getBuffer(), width, height);
 }
 
 void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame) {
@@ -152,7 +162,7 @@ void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, cons
       }
     }
   }
-  tft.drawRGBBitmap(x, y, petBuffer.getBuffer(), width, height);
+  tft.drawRGBBitmap( originX +x, originY + y, petBuffer.getBuffer(), width, height);
 }
 
 void DisplayManager::drawPoops(int count) {
@@ -166,18 +176,18 @@ void DisplayManager::drawPoops(int count) {
 void DisplayManager::drawMenu(int selectedIndex) {
   const char* menuItems[] = { "Feed", "Play", "Sleep", "Clean", "Settings", "Exit" };
 
-  tft.fillRoundRect(8, 6, 112, 116, 6, TFT_BLACK);
-  tft.drawRoundRect(8, 6, 112, 116, 6, TFT_WHITE);
+  tft.fillRoundRect( originX +8, originY + 6, 112, 116, 6, TFT_BLACK);
+  tft.drawRoundRect( originX +8, originY + 6, 112, 116, 6, TFT_WHITE);
   tft.setTextSize(1);
 
   for (int i = 0; i < 6; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(18, 16 + (i * 17));
+      tft.setCursor( originX +18, originY + 16 + (i * 17));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(18, 16 + (i * 17));
+      tft.setCursor( originX +18, originY + 16 + (i * 17));
       tft.print("  ");
     }
     tft.println(menuItems[i]);
@@ -185,8 +195,8 @@ void DisplayManager::drawMenu(int selectedIndex) {
 }
 
 void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
-  tft.fillRoundRect(8, 30, 112, 68, 6, TFT_BLACK);
-  tft.drawRoundRect(8, 30, 112, 68, 6, TFT_WHITE);
+  tft.fillRoundRect( originX +8, originY + 30, 112, 68, 6, TFT_BLACK);
+  tft.drawRoundRect( originX +8, originY + 30, 112, 68, 6, TFT_WHITE);
   tft.setTextSize(1);
 
   const char* options[] = { "Sound: ", "Back" };
@@ -194,11 +204,11 @@ void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
   for (int i = 0; i < 2; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(18, 44 + (i * 20));
+      tft.setCursor( originX +18, originY + 44 + (i * 20));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(18, 44 + (i * 20));
+      tft.setCursor( originX +18, originY + 44 + (i * 20));
       tft.print("  ");
     }
     tft.print(options[i]);
@@ -212,12 +222,12 @@ void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
 }
 
 void DisplayManager::drawGameOver(int selectedIndex) {
-  tft.fillRoundRect(8, 34, 112, 60, 6, TFT_BLACK);
-  tft.drawRoundRect(8, 34, 112, 60, 6, TFT_WHITE);
+  tft.fillRoundRect( originX +8, originY + 34, 112, 60, 6, TFT_BLACK);
+  tft.drawRoundRect( originX +8, originY + 34, 112, 60, 6, TFT_WHITE);
   tft.setTextSize(1);
 
   tft.setTextColor(TFT_RED);
-  tft.setCursor(46, 42);
+  tft.setCursor( originX +46, originY + 42);
   tft.print("R.I.P.");
 
   const char* options[] = { "Restart", "Leave" };
@@ -225,11 +235,11 @@ void DisplayManager::drawGameOver(int selectedIndex) {
   for (int i = 0; i < 2; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(24, 60 + (i * 16));
+      tft.setCursor( originX +24, originY + 60 + (i * 16));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(24, 60 + (i * 16));
+      tft.setCursor( originX +24, originY + 60 + (i * 16));
       tft.print("  ");
     }
     tft.println(options[i]);
@@ -242,11 +252,11 @@ void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int tre
   }
 
   drawBackgroundRegion(0, 0, SCREEN_WIDTH, 14);
-  tft.fillRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
-  tft.drawRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
+  tft.fillRoundRect( originX +2, originY + 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
+  tft.drawRoundRect( originX +2, originY + 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(6, 3);
+  tft.setCursor( originX +6, originY + 3);
   tft.printf("Sc:%d T:%ds", score, timeLeft);
 
   if (treatY > 0) {
@@ -256,11 +266,11 @@ void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int tre
 
 void DisplayManager::drawMinigameTopBar(int score, int timeLeft) {
   drawBackgroundRegion(0, 0, SCREEN_WIDTH, 14);
-  tft.fillRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
-  tft.drawRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
+  tft.fillRoundRect( originX +2, originY + 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
+  tft.drawRoundRect( originX +2, originY + 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(6, 3);
+  tft.setCursor( originX +6, originY + 3);
   tft.printf("Sc:%d T:%ds", score, timeLeft);
 }
 

@@ -16,7 +16,9 @@ class CharacterManager {
 private:
   int x, y;
   int oldX;
+  int oldY;
   int dx;
+  int dy;
   int spriteWidth;
   int spriteHeight;
   PetAction currentAction;
@@ -24,7 +26,8 @@ private:
   uint32_t lastMoveTime;
   uint32_t lastFrameTime;
   uint32_t actionStartTime;
-
+  uint32_t nextWanderTime;
+  
   int currentFrame;
   bool facingRight;
 
