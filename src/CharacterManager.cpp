@@ -2,10 +2,10 @@
 #include "Sprites.h"
 
 CharacterManager::CharacterManager() {
-  x = 100;
-  oldX = 100;
-  y = 145;
-  dx = 3;
+  x = 20;
+  oldX = 20;
+  y = 36;
+  dx = 2;
   spriteWidth = 90;
   spriteHeight = 90;
   currentAction = WALKING;
@@ -80,8 +80,8 @@ void CharacterManager::update(DisplayManager& display) {
         x = 0;
         dx = -dx;
         facingRight = true;
-      } else if (x >= (280 - spriteWidth)) {
-        x = 280 - spriteWidth;
+      } else if (x >= (SCREEN_WIDTH - spriteWidth)) {
+        x = SCREEN_WIDTH - spriteWidth;
         dx = -dx;
         facingRight = false;
       }

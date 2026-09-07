@@ -1,6 +1,16 @@
 #ifndef DISPLAY_MANAGER_H
 #define DISPLAY_MANAGER_H
 
+// ==========================================================================
+// BUILD TARGET TOGGLE
+//   SIMULATOR_BUILD is controlled by platformio.ini, NOT hardcoded here:
+//     - env:wokwi-sim  passes -DSIMULATOR_BUILD  -> ST7789 stand-in
+//       (Wokwi has no SSD1351 part).
+//     - env:esp32-s3-devkitc-1 omits it          -> real SSD1351 128x128.
+//   Do not #define it here, or the hardware build will pull in the ST7789
+//   library it doesn't depend on and fail to compile.
+// ==========================================================================
+
 #include <Adafruit_GFX.h>
 #include <SPI.h>
 
@@ -8,10 +18,10 @@
 #define SCREEN_HEIGHT 128
 
 #define TFT_CS   10
-#define TFT_DC   13
-#define TFT_RST  14
 #define TFT_MOSI 11
 #define TFT_SCLK 12
+#define TFT_DC   13
+#define TFT_RST  14
 
 #define TFT_BLACK      0x0000
 #define TFT_WHITE      0xFFFF

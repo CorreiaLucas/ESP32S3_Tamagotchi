@@ -49,7 +49,7 @@ public:
   }
   void setX(int newX) {
     if (newX < 0) newX = 0;
-    if (newX > 280 - spriteWidth) newX = 280 - spriteWidth;
+    if (newX > SCREEN_WIDTH - spriteWidth) newX = SCREEN_WIDTH - spriteWidth;
     x = newX;
   }
   void setFacingRight(bool right) {

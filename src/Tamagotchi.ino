@@ -20,11 +20,11 @@ CharacterManager cat;
 int lastHunger = -1;
 int lastHappiness = -1;
 int lastEnergy = -1;
-int lastCatX = 100;
+int lastCatX = 20;
 int lastPoopCount = -1;
-int mgTreatX = 140;
+int mgTreatX = 60;
 int mgTreatY = 0;
-int mgOldTreatX = 140;
+int mgOldTreatX = 60;
 int mgOldTreatY = 0;
 int mgScore = 0;
 int menuSelection = 0;
@@ -131,8 +131,8 @@ void loop() {
         cat.setAction(MINIGAME);
         mgScore = 0;
         mgStartTime = millis();
-        mgTreatY = 20;
-        mgTreatX = random(20, 260);
+        mgTreatY = 14;
+        mgTreatX = random(2, SCREEN_WIDTH - 18);
         display.clearScreen();
       } else if (menuSelection == 2) {
         pet.forceSleep();
@@ -210,7 +210,7 @@ void loop() {
     }
 
     int oldCatX = cat.getX();
-    int mgStepSpeed = 14;
+    int mgStepSpeed = 8;
 
     if (input.isLeftPressed()) {
       cat.setX(cat.getX() - mgStepSpeed);
@@ -227,19 +227,21 @@ void loop() {
     mgOldTreatX = mgTreatX;
     mgOldTreatY = mgTreatY;
 
-    int dropSpeed = 4;
+    int dropSpeed = 3;
     mgTreatY += dropSpeed;
 
-    if (mgTreatY > 145 && mgTreatY < 200) {
-      if (abs((mgTreatX + 8) - (cat.getX() + 45)) < 40) {
+    // Pet occupies y=36..126; catch when treat is over the pet's body.
+    if (mgTreatY > 70 && mgTreatY < 120) {
+      // treat center vs pet center (pet is 90 wide)
+      if (abs((mgTreatX + 8) - (cat.getX() + 45)) < 30) {
         mgScore++;
         sound.playClick();
-        mgTreatY = 20;
-        mgTreatX = random(20, 260);
+        mgTreatY = 14;
+        mgTreatX = random(2, SCREEN_WIDTH - 18);
       }
-    } else if (mgTreatY > 240) {
-      mgTreatY = 20;
-      mgTreatX = random(20, 260);
+    } else if (mgTreatY > SCREEN_HEIGHT) {
+      mgTreatY = 14;
+      mgTreatX = random(2, SCREEN_WIDTH - 18);
     }
 
     display.updateMinigameTreat(mgTreatX, mgTreatY, mgOldTreatX, mgOldTreatY);

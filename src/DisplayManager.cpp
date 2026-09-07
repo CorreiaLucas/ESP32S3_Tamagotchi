@@ -11,11 +11,19 @@ DisplayManager::DisplayManager()
 
 void DisplayManager::begin() {
   #ifdef SIMULATOR_BUILD
-    tft.init(SCREEN_WIDTH, SCREEN_HEIGHT, SPI_MODE3);
+    // Wokwi ST7789 stand-in. Its native panel is 240x240; we draw our
+    // 128x128 UI into the top-left corner. This lets us validate logic in
+    // simulation before the real SSD1351 hardware arrives.
+    SPI.begin(TFT_SCLK, -1, TFT_MOSI, TFT_CS);
+    tft.init(240, 240);
   #else
+    // Real hardware: Waveshare SSD1351 128x128.
     tft.begin();
   #endif
-  tft.setRotation(3);
+  // Rotation 2 = 180deg. The Wokwi ST7789 stand-in renders its origin at
+  // the opposite corner from what our 128x128 UI layout assumes, so
+  // rotation 0 shows everything upside-down. This flips the whole panel.
+  tft.setRotation(2);
   tft.fillScreen(TFT_SAGE_GREEN);
 }
 
@@ -29,8 +37,9 @@ void DisplayManager::clearScreen() {
 }
 
 void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
-  tft.fillRect(0, 0, 280, 45, TFT_SAGE_GREEN);
-  tft.setTextSize(2);
+  // Top status area, full 128 width.
+  tft.fillRect(0, 0, SCREEN_WIDTH, 34, TFT_SAGE_GREEN);
+  tft.setTextSize(1);
 
   if (hunger <= 20 || happiness <= 20) {
     tft.setTextColor(TFT_RED);
@@ -38,18 +47,18 @@ void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
     tft.setTextColor(TFT_WHITE);
   }
 
-  tft.setCursor(5, 5);
-  tft.printf("Hng:%d  Hap:%d", hunger, happiness);
+  tft.setCursor(2, 2);
+  tft.printf("H:%d Hap:%d", hunger, happiness);
 
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(5, 25);
-  tft.print("Eny:");
+  tft.setCursor(2, 14);
+  tft.print("E:");
 
-  tft.drawRect(55, 25, 215, 16, TFT_WHITE);
-
-  int fillWidth = (211 * energy) / 100;
+  // Energy bar: label ~12px, bar fills the rest.
+  tft.drawRect(18, 13, 108, 10, TFT_WHITE);
+  int fillWidth = (104 * energy) / 100;
   if (fillWidth > 0) {
-    tft.fillRect(57, 27, fillWidth, 12, TFT_BLUE);
+    tft.fillRect(20, 15, fillWidth, 6, TFT_BLUE);
   }
 }
 
@@ -100,8 +109,8 @@ void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, cons
 }
 
 void DisplayManager::drawPoops(int count) {
-  int poopX[] = { 20, 230, 120 };
-  int poopY = 195;
+  int poopX[] = { 6, 104, 54 };
+  int poopY = 104;
   for (int i = 0; i < count; i++) {
     drawTransparentImage(poopX[i], poopY, 20, 20, poop_frame, TFT_BLACK);
   }
@@ -110,18 +119,18 @@ void DisplayManager::drawPoops(int count) {
 void DisplayManager::drawMenu(int selectedIndex) {
   const char* menuItems[] = { "Feed", "Play", "Sleep", "Clean", "Settings", "Exit" };
 
-  tft.fillRoundRect(40, 40, 200, 165, 10, TFT_BLACK);
-  tft.drawRoundRect(40, 40, 200, 165, 10, TFT_WHITE);
-  tft.setTextSize(2);
+  tft.fillRoundRect(8, 6, 112, 116, 6, TFT_BLACK);
+  tft.drawRoundRect(8, 6, 112, 116, 6, TFT_WHITE);
+  tft.setTextSize(1);
 
   for (int i = 0; i < 6; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(60, 55 + (i * 25));
+      tft.setCursor(18, 16 + (i * 17));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(60, 55 + (i * 25));
+      tft.setCursor(18, 16 + (i * 17));
       tft.print("  ");
     }
     tft.println(menuItems[i]);
@@ -129,20 +138,20 @@ void DisplayManager::drawMenu(int selectedIndex) {
 }
 
 void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
-  tft.fillRoundRect(40, 60, 200, 120, 10, TFT_BLACK);
-  tft.drawRoundRect(40, 60, 200, 120, 10, TFT_WHITE);
-  tft.setTextSize(2);
+  tft.fillRoundRect(8, 30, 112, 68, 6, TFT_BLACK);
+  tft.drawRoundRect(8, 30, 112, 68, 6, TFT_WHITE);
+  tft.setTextSize(1);
 
   const char* options[] = { "Sound: ", "Back" };
 
   for (int i = 0; i < 2; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(60, 80 + (i * 30));
+      tft.setCursor(18, 44 + (i * 20));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(60, 80 + (i * 30));
+      tft.setCursor(18, 44 + (i * 20));
       tft.print("  ");
     }
     tft.print(options[i]);
@@ -156,12 +165,12 @@ void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
 }
 
 void DisplayManager::drawGameOver(int selectedIndex) {
-  tft.fillRoundRect(30, 70, 220, 100, 10, TFT_BLACK);
-  tft.drawRoundRect(30, 70, 220, 100, 10, TFT_WHITE);
-  tft.setTextSize(2);
+  tft.fillRoundRect(8, 34, 112, 60, 6, TFT_BLACK);
+  tft.drawRoundRect(8, 34, 112, 60, 6, TFT_WHITE);
+  tft.setTextSize(1);
 
   tft.setTextColor(TFT_RED);
-  tft.setCursor(80, 85);
+  tft.setCursor(46, 42);
   tft.print("R.I.P.");
 
   const char* options[] = { "Restart", "Leave" };
@@ -169,11 +178,11 @@ void DisplayManager::drawGameOver(int selectedIndex) {
   for (int i = 0; i < 2; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor(60, 115 + (i * 25));
+      tft.setCursor(24, 60 + (i * 16));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor(60, 115 + (i * 25));
+      tft.setCursor(24, 60 + (i * 16));
       tft.print("  ");
     }
     tft.println(options[i]);
@@ -185,11 +194,11 @@ void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int tre
     tft.fillRect(oldTreatX, oldTreatY, 16, 16, TFT_SAGE_GREEN);
   }
 
-  tft.fillRect(0, 0, 280, 30, TFT_SAGE_GREEN);
-  tft.setTextSize(2);
+  tft.fillRect(0, 0, SCREEN_WIDTH, 12, TFT_SAGE_GREEN);
+  tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(10, 5);
-  tft.printf("Score:%d  Time:%ds", score, timeLeft);
+  tft.setCursor(2, 2);
+  tft.printf("Sc:%d T:%ds", score, timeLeft);
 
   if (treatY > 0) {
     drawTransparentImage(treatX, treatY, 16, 16, treat_frame, TFT_BLACK);
@@ -197,11 +206,11 @@ void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int tre
 }
 
 void DisplayManager::drawMinigameTopBar(int score, int timeLeft) {
-  tft.fillRect(0, 0, 280, 30, TFT_SAGE_GREEN);
-  tft.setTextSize(2);
+  tft.fillRect(0, 0, SCREEN_WIDTH, 12, TFT_SAGE_GREEN);
+  tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(10, 5);
-  tft.printf("Score:%d  Time:%ds", score, timeLeft);
+  tft.setCursor(2, 2);
+  tft.printf("Sc:%d T:%ds", score, timeLeft);
 }
 
 void DisplayManager::updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY) {
