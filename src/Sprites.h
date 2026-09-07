@@ -32,6 +32,9 @@ extern const uint16_t dead_frame[] PROGMEM;
 extern const uint16_t poop_frame[] PROGMEM;
 extern const uint16_t treat_frame[] PROGMEM;
 
+// Full-screen 128x128 background (RGB565)
+extern const uint16_t background_data_forest[] PROGMEM;
+
 extern const uint16_t* const walk_frames[4];
 extern const uint16_t* const sleep_frames[4];
 extern const uint16_t* const eat_frames[4];

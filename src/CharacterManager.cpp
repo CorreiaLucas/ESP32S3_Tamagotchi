@@ -6,8 +6,8 @@ CharacterManager::CharacterManager() {
   oldX = 20;
   y = 36;
   dx = 2;
-  spriteWidth = 90;
-  spriteHeight = 90;
+  spriteWidth = 48;
+  spriteHeight = 48;
   currentAction = WALKING;
 
   lastMoveTime = 0;

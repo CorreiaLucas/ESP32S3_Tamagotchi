@@ -3,9 +3,9 @@
 
 DisplayManager::DisplayManager()
 #ifdef SIMULATOR_BUILD
-  : tft(&SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90)
+  : tft(&SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(48, 48)
 #else
-  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(90, 90)
+  : tft(SCREEN_WIDTH, SCREEN_HEIGHT, &SPI, TFT_CS, TFT_DC, TFT_RST), petBuffer(48, 48)
 #endif
 {}
 
@@ -27,18 +27,44 @@ void DisplayManager::begin() {
   tft.fillScreen(TFT_SAGE_GREEN);
 }
 
+void DisplayManager::drawBackground() {
+  // Full-screen 128x128 RGB565 background image.
+  tft.drawRGBBitmap(0, 0, background_data_forest, SCREEN_WIDTH, SCREEN_HEIGHT);
+}
+
+void DisplayManager::drawBackgroundRegion(int x, int y, int w, int h) {
+  // Repaint just a slice of the forest background (used to "erase" the pet's
+  // trail so the forest shows through instead of a flat colour). Clamps to
+  // the panel bounds so partial off-screen regions are safe.
+  for (int row = 0; row < h; row++) {
+    int sy = y + row;
+    if (sy < 0 || sy >= SCREEN_HEIGHT) continue;
+    for (int col = 0; col < w; col++) {
+      int sx = x + col;
+      if (sx < 0 || sx >= SCREEN_WIDTH) continue;
+      uint16_t color = pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx]);
+      tft.drawPixel(sx, sy, color);
+    }
+  }
+}
+
 void DisplayManager::forceFullRedraw(int hunger, int happiness, int energy) {
-  tft.fillScreen(TFT_SAGE_GREEN);
+  drawBackground();
   drawMainScreen(hunger, happiness, energy);
 }
 
 void DisplayManager::clearScreen() {
-  tft.fillScreen(TFT_SAGE_GREEN);
+  // Clear to the forest background rather than a flat colour.
+  drawBackground();
 }
 
 void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
-  // Top status area, full 128 width.
-  tft.fillRect(0, 0, SCREEN_WIDTH, 34, TFT_SAGE_GREEN);
+  // Repaint the forest behind the status area first, then lay a translucent-
+  // looking dark panel over it so the white text/bars stay readable on the
+  // busy background (matches the menu/settings panel style).
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, 34);
+  tft.fillRoundRect(2, 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
+  tft.drawRoundRect(2, 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
   tft.setTextSize(1);
 
   if (hunger <= 20 || happiness <= 20) {
@@ -47,26 +73,27 @@ void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
     tft.setTextColor(TFT_WHITE);
   }
 
-  tft.setCursor(2, 2);
+  tft.setCursor(6, 4);
   tft.printf("H:%d Hap:%d", hunger, happiness);
 
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(2, 14);
+  tft.setCursor(6, 16);
   tft.print("E:");
 
   // Energy bar: label ~12px, bar fills the rest.
-  tft.drawRect(18, 13, 108, 10, TFT_WHITE);
-  int fillWidth = (104 * energy) / 100;
+  tft.drawRect(22, 15, 100, 10, TFT_WHITE);
+  int fillWidth = (96 * energy) / 100;
   if (fillWidth > 0) {
-    tft.fillRect(20, 15, fillWidth, 6, TFT_BLUE);
+    tft.fillRect(24, 17, fillWidth, 6, TFT_BLUE);
   }
 }
 
 void DisplayManager::clearTrail(int oldX, int newX, int y, int width, int height) {
+  // Repaint the vacated strip with the forest background instead of a flat fill.
   if (newX > oldX) {
-    tft.fillRect(oldX, y, newX - oldX, height, TFT_SAGE_GREEN);
+    drawBackgroundRegion(oldX, y, newX - oldX, height);
   } else if (newX < oldX) {
-    tft.fillRect(newX + width, y, oldX - newX, height, TFT_SAGE_GREEN);
+    drawBackgroundRegion(newX + width, y, oldX - newX, height);
   }
 }
 
@@ -82,7 +109,18 @@ void DisplayManager::drawTransparentImage(int x, int y, int width, int height, c
 }
 
 void DisplayManager::drawSprite(int x, int y, int width, int height, const uint16_t* frame) {
-  petBuffer.fillScreen(TFT_SAGE_GREEN);
+  // Seed the buffer with the forest pixels behind the pet so transparent
+  // sprite pixels reveal the background instead of a flat colour.
+  for (int row = 0; row < height; row++) {
+    int sy = y + row;
+    for (int col = 0; col < width; col++) {
+      int sx = x + col;
+      uint16_t bg = (sx >= 0 && sx < SCREEN_WIDTH && sy >= 0 && sy < SCREEN_HEIGHT)
+                      ? pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx])
+                      : TFT_BLACK;
+      petBuffer.drawPixel(col, row, bg);
+    }
+  }
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
       uint16_t color = pgm_read_word(&frame[row * width + col]);
@@ -95,8 +133,17 @@ void DisplayManager::drawSprite(int x, int y, int width, int height, const uint1
 }
 
 void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame) {
-  petBuffer.fillScreen(TFT_SAGE_GREEN);
-
+  // Seed with the forest background behind the pet (mirrored draw follows).
+  for (int row = 0; row < height; row++) {
+    int sy = y + row;
+    for (int col = 0; col < width; col++) {
+      int sx = x + col;
+      uint16_t bg = (sx >= 0 && sx < SCREEN_WIDTH && sy >= 0 && sy < SCREEN_HEIGHT)
+                      ? pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx])
+                      : TFT_BLACK;
+      petBuffer.drawPixel(col, row, bg);
+    }
+  }
   for (int row = 0; row < height; row++) {
     for (int col = 0; col < width; col++) {
       uint16_t color = pgm_read_word(&frame[row * width + col]);
@@ -191,13 +238,15 @@ void DisplayManager::drawGameOver(int selectedIndex) {
 
 void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY) {
   if (oldTreatY > 0) {
-    tft.fillRect(oldTreatX, oldTreatY, 16, 16, TFT_SAGE_GREEN);
+    drawBackgroundRegion(oldTreatX, oldTreatY, 16, 16);
   }
 
-  tft.fillRect(0, 0, SCREEN_WIDTH, 12, TFT_SAGE_GREEN);
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, 14);
+  tft.fillRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
+  tft.drawRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(2, 2);
+  tft.setCursor(6, 3);
   tft.printf("Sc:%d T:%ds", score, timeLeft);
 
   if (treatY > 0) {
@@ -206,16 +255,18 @@ void DisplayManager::drawMinigameUI(int score, int timeLeft, int treatX, int tre
 }
 
 void DisplayManager::drawMinigameTopBar(int score, int timeLeft) {
-  tft.fillRect(0, 0, SCREEN_WIDTH, 12, TFT_SAGE_GREEN);
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, 14);
+  tft.fillRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_BLACK);
+  tft.drawRoundRect(2, 0, SCREEN_WIDTH - 4, 13, 3, TFT_WHITE);
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(2, 2);
+  tft.setCursor(6, 3);
   tft.printf("Sc:%d T:%ds", score, timeLeft);
 }
 
 void DisplayManager::updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY) {
   if (oldTreatY > 0) {
-    tft.fillRect(oldTreatX, oldTreatY, 16, 16, TFT_SAGE_GREEN);
+    drawBackgroundRegion(oldTreatX, oldTreatY, 16, 16);
   }
   if (treatY > 0) {
     drawTransparentImage(treatX, treatY, 16, 16, treat_frame, TFT_BLACK);

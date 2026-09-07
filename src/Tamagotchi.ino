@@ -80,7 +80,7 @@ void loop() {
     cat.update(display);
 
     if (cat.getX() != lastCatX) {
-      display.clearTrail(lastCatX, cat.getX(), cat.getY(), 90, 90);
+      display.clearTrail(lastCatX, cat.getX(), cat.getY(), 48, 48);
       lastCatX = cat.getX();
       display.drawPoops(pet.getPoopCount());
     }
@@ -221,7 +221,7 @@ void loop() {
     }
 
     if (oldCatX != cat.getX()) {
-      display.clearTrail(oldCatX, cat.getX(), cat.getY(), 90, 90);
+      display.clearTrail(oldCatX, cat.getX(), cat.getY(), 48, 48);
     }
 
     mgOldTreatX = mgTreatX;
