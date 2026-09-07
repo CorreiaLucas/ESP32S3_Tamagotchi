@@ -60,6 +60,7 @@ void DisplayManager::drawBackgroundRegion(int x, int y, int w, int h) {
 
 void DisplayManager::forceFullRedraw(int hunger, int happiness, int energy) {
   drawBackground();
+  drawStatusPanelChrome();
   drawMainScreen(hunger, happiness, energy);
 }
 
@@ -68,13 +69,14 @@ void DisplayManager::clearScreen() {
   drawBackground();
 }
 
+void DisplayManager::drawStatusPanelChrome() {
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, UI_BAR_HEIGHT);
+  tft.fillRoundRect(originX + 2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
+  tft.drawRoundRect(originX + 2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
+}
+
 void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
-  // Repaint the forest behind the status area first, then lay a translucent-
-  // looking dark panel over it so the white text/bars stay readable on the
-  // busy background (matches the menu/settings panel style).
-  drawBackgroundRegion(0, 0, SCREEN_WIDTH, 34);
-  tft.fillRoundRect( originX +2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
-  tft.drawRoundRect( originX +2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
+  tft.fillRect(originX + 4, originY + 3, SCREEN_WIDTH - 8, 10, TFT_BLACK);
   tft.setTextSize(1);
 
   if (hunger <= 20 || happiness <= 20) {
@@ -82,19 +84,18 @@ void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
   } else {
     tft.setTextColor(TFT_WHITE);
   }
-
-  tft.setCursor( originX +6, originY + 4);
+  tft.setCursor(originX + 6, originY + 4);
   tft.printf("H:%d Hap:%d", hunger, happiness);
 
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor( originX +6, originY + 16);
+  tft.setCursor(originX + 6, originY + 16);
   tft.print("E:");
 
-  // Energy bar: label ~12px, bar fills the rest.
-  tft.drawRect( originX +22, originY + 15, 100, 10, TFT_WHITE);
+  // Only clear+refill the bar's interior, not the border (border never changes).
+  tft.fillRect(originX + 24, originY + 17, 96, 6, TFT_BLACK);
   int fillWidth = (96 * energy) / 100;
   if (fillWidth > 0) {
-    tft.fillRect( originX +24, originY + 17, fillWidth, 6, TFT_BLUE);
+    tft.fillRect(originX + 24, originY + 17, fillWidth, 6, TFT_BLUE);
   }
 }
 

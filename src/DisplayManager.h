@@ -55,6 +55,7 @@ public:
   void drawBackground();
   void drawBackgroundRegion(int x, int y, int w, int h);
   void clearScreen();
+  void drawStatusPanelChrome();
   void drawMainScreen(int hunger, int happiness, int energy);
   void clearTrail(int oldX, int newX, int y, int width, int height);
 
