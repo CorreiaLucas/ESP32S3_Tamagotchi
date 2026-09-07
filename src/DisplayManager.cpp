@@ -70,33 +70,51 @@ void DisplayManager::clearScreen() {
 }
 
 void DisplayManager::drawStatusPanelChrome() {
-  drawBackgroundRegion(0, 0, SCREEN_WIDTH, UI_BAR_HEIGHT);
-  tft.fillRoundRect(originX + 2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_BLACK);
-  tft.drawRoundRect(originX + 2, originY + 1, SCREEN_WIDTH - 4, 32, 4, TFT_WHITE);
+  // Static elements: draw once from forceFullRedraw, never on a stat tick.
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, STAT_ROW_Y0 + STAT_ROW_H * 3 + 2);
+
+  const uint16_t iconColors[3] = { STAT_HUNGER_COLOR, STAT_HAPPY_COLOR, STAT_ENERGY_COLOR };
+  const bool isHeart[3] = { true, false, false };
+
+  for (int row = 0; row < 3; row++) {
+    int y = originY + STAT_ROW_Y0 + row * STAT_ROW_H;
+    // Icon
+    if (isHeart[row]) {
+      int cx = originX + STAT_ICON_X + 3;
+      tft.fillCircle(cx - 1, y + 2, 1, iconColors[row]);
+      tft.fillCircle(cx + 1, y + 2, 1, iconColors[row]);
+      tft.fillTriangle(cx - 2, y + 3, cx + 2, y + 3, cx, y + 5, iconColors[row]);
+    } else {
+      tft.fillCircle(originX + STAT_ICON_X + 3, y + 3, 3, iconColors[row]);
+    }
+    // Bar track (static outline + background)
+    tft.fillRect(originX + STAT_BAR_X, y, STAT_BAR_W, STAT_BAR_H, STAT_BAR_BG);
+    tft.drawRect(originX + STAT_BAR_X, y, STAT_BAR_W, STAT_BAR_H, TFT_WHITE);
+  }
+}
+
+void DisplayManager::drawStatBar(int row, uint16_t iconColor, uint16_t barColor, int value, bool isHeartUnused) {
+  int y = originY + STAT_ROW_Y0 + row * STAT_ROW_H;
+
+  // Refill only the bar's interior, not the border.
+  tft.fillRect(originX + STAT_BAR_X + 1, y + 1, STAT_BAR_W - 2, STAT_BAR_H - 2, STAT_BAR_BG);
+  int fillWidth = ((STAT_BAR_W - 2) * value) / 100;
+  if (fillWidth > 0) {
+    tft.fillRect(originX + STAT_BAR_X + 1, y + 1, fillWidth, STAT_BAR_H - 2, barColor);
+  }
+
+  // Right-aligned number, clear just that small region first.
+  tft.fillRect(originX + STAT_NUM_X, y, SCREEN_WIDTH - STAT_NUM_X - 2, STAT_ROW_H - 2, TFT_BLACK);
+  tft.setTextSize(1);
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(originX + STAT_NUM_X, y + 2);
+  tft.print(value);
 }
 
 void DisplayManager::drawMainScreen(int hunger, int happiness, int energy) {
-  tft.fillRect(originX + 4, originY + 3, SCREEN_WIDTH - 8, 10, TFT_BLACK);
-  tft.setTextSize(1);
-
-  if (hunger <= 20 || happiness <= 20) {
-    tft.setTextColor(TFT_RED);
-  } else {
-    tft.setTextColor(TFT_WHITE);
-  }
-  tft.setCursor(originX + 6, originY + 4);
-  tft.printf("H:%d Hap:%d", hunger, happiness);
-
-  tft.setTextColor(TFT_WHITE);
-  tft.setCursor(originX + 6, originY + 16);
-  tft.print("E:");
-
-  // Only clear+refill the bar's interior, not the border (border never changes).
-  tft.fillRect(originX + 24, originY + 17, 96, 6, TFT_BLACK);
-  int fillWidth = (96 * energy) / 100;
-  if (fillWidth > 0) {
-    tft.fillRect(originX + 24, originY + 17, fillWidth, 6, TFT_BLUE);
-  }
+  drawStatBar(0, STAT_HUNGER_COLOR, STAT_HUNGER_COLOR, hunger, true);
+  drawStatBar(1, STAT_HAPPY_COLOR, STAT_HAPPY_COLOR, happiness, false);
+  drawStatBar(2, STAT_ENERGY_COLOR, STAT_ENERGY_COLOR, energy, false);
 }
 
 void DisplayManager::clearTrail(int oldX, int newX, int y, int width, int height) {

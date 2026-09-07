@@ -31,6 +31,23 @@
 #define TFT_SAGE_GREEN 0x8E4D  // placeholder — replace with the real value if you know it
 #define TFT_BEZEL      0x2124  // dark grey "bezel" drawn around the framed 128x128 sim window
 
+// ==========================================================================
+//                            UI COLORS
+// ==========================================================================
+#define STAT_HUNGER_COLOR  0xFD20  // orange
+#define STAT_HAPPY_COLOR   0xFFE0  // yellow
+#define STAT_ENERGY_COLOR  0x001F  // blue
+#define STAT_BAR_BG        0x2104  // dark track
+
+#define STAT_ROW_H   9      // was 12
+#define STAT_ROW_Y0  1      // was 2
+#define STAT_ICON_X  2      // was 4
+#define STAT_BAR_X   10     // was 15
+#define STAT_BAR_W   72     // was 92
+#define STAT_BAR_H   5      // was 7
+#define STAT_NUM_X   84     // was 109
+
+
 #ifdef SIMULATOR_BUILD
   #include <Adafruit_ST7789.h>
   using DisplayDriver = Adafruit_ST7789;
@@ -71,6 +88,7 @@ public:
 
   void drawMinigameTopBar(int score, int timeLeft);
   void updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY);
+  void drawStatBar(int row, uint16_t iconColor, uint16_t barColor, int value, bool isHeart);
 };
 
 #endif
