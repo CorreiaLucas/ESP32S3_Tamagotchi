@@ -50,3 +50,14 @@ All buttons use `INPUT_PULLUP` (internal), pressed = LOW. No external resistors.
   `MOSI/SCK`). If a wire shows an error in Wokwi, re-map to the pin label Wokwi
   shows on the part — the GPIO side stays the same.
 - On real hardware, the Waveshare VCC must be **3.3V only**.
+
+# PNG to RGB565 converter
+ - Images are not natively supported by the microcontrollers and need to be converted to RGB565.
+ - How to use the script : 
+Run it from the project root. Two different modes:
+ - Sprites (fit+center, transparent, crisp nearest-neighbor — for pet frames):
+ exemple : python tools\png_to_rgb565.py sprite Assets\Digimons\terriermon\terriermon_walk1.png --name walk_0 --size 48
+ - Backgrounds (fill+crop, fully opaque, smooth Lanczos — for full-screen art):
+ python tools\png_to_rgb565.py background Assets\Backgrounds\Data_forest.png --name background_data_forest --size 128
+ - Write straight into Sprites.cpp with --out + --append:
+ python tools\png_to_rgb565.py sprite Assets\...\eat1.png --name eat_0 --size 48 --out src\Sprites.cpp --append
