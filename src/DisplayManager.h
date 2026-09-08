@@ -39,13 +39,52 @@
 #define STAT_ENERGY_COLOR  0x001F  // blue
 #define STAT_BAR_BG        0x2104  // dark track
 
-#define STAT_ROW_H   9      // was 12
-#define STAT_ROW_Y0  1      // was 2
-#define STAT_ICON_X  2      // was 4
-#define STAT_BAR_X   10     // was 15
-#define STAT_BAR_W   72     // was 92
-#define STAT_BAR_H   5      // was 7
-#define STAT_NUM_X   84     // was 109
+// --------------------------------------------------------------------------
+// Digimon-World-style GREY PLATE bars.
+//   Each bar is a 6px-tall grey plate: black top/bottom frame, white bevel on
+//   the left edge, dark-grey dividers near each end, and a thin 2px colored
+//   fill lane (light shade over base shade) framed inside the plate.
+//   A dark number box hugs the right end of each plate.
+// --------------------------------------------------------------------------
+#define STAT_PLATE_H   6      // total plate height (matches the ASCII schema)
+#define STAT_ROW_H     8      // row pitch (6px plate + 2px gap)  -> shorter/tighter
+#define STAT_ROW_Y0    1
+#define STAT_ICON_X    2
+#define STAT_BAR_X     9      // plate left edge
+#define STAT_BAR_W     62     // plate width
+
+// Internal plate structure (x offsets from STAT_BAR_X)
+#define STAT_LEFT_DIV   4              // dark divider just past the white bevel
+#define STAT_RIGHT_DIV  (STAT_BAR_W-5) // dark divider near the right end
+#define STAT_FILL_BL    (STAT_LEFT_DIV+1)   // fill-lane left border (black)
+#define STAT_FILL_BR    (STAT_RIGHT_DIV-1)  // fill-lane right border (black)
+#define STAT_FILL_X0    (STAT_FILL_BL+1)    // first fillable pixel
+#define STAT_FILL_W     (STAT_FILL_BR - STAT_FILL_X0)  // fillable width
+
+// Number box: hugs the right end of the plate.
+#define STAT_NUM_X   (STAT_BAR_X + STAT_BAR_W + 1)
+#define STAT_NUM_W   18
+#define STAT_NUM_H   8
+
+// Plate palette
+#define STAT_FRAME_COLOR   0x0000  // b : black frame / borders
+#define STAT_PLATE_GREY    0x8410  // g : plate body (mid grey)
+#define STAT_PLATE_DGREY   0x4208  // d : dark-grey divider
+#define STAT_BEVEL_WHITE   0xFFFF  // w : white bevel highlight (left edge)
+#define STAT_NUM_BG        0x0000  // number box background
+#define STAT_NUM_FRAME     0x8410  // grey border around the number box
+
+// Lighten helper: OR this into a fill colour to get its "top" highlight shade.
+#define STAT_HILITE_OR     0x8410
+
+// --------------------------------------------------------------------------
+// Menu styling (same grey-plate DW look as the stat bars).
+//   Grey beveled window; each row is a grey plate; the selected row is a
+//   lighter raised plate with a '>' arrow and dark text.
+// --------------------------------------------------------------------------
+#define MENU_PLATE_LGREY   0xBDF7  // lighter grey for the selected (raised) row
+#define MENU_TEXT_LIGHT    0xFFFF  // text on unselected rows
+#define MENU_TEXT_DARK     0x0000  // text on the light selected row
 
 
 #ifdef SIMULATOR_BUILD
@@ -81,14 +120,20 @@ public:
   void drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame);
 
   void drawPoops(int count);
-  void drawMenu(int selectedIndex);
-  void drawSettings(int selectedIndex, bool isMuted);
+  void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
+  void drawStatsPage(int hp, int maxHp, int ap, int dp);
+  void drawDigivolutionPage();
   void drawGameOver(int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
 
   void drawMinigameTopBar(int score, int timeLeft);
   void updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY);
   void drawStatBar(int row, uint16_t iconColor, uint16_t barColor, int value, bool isHeart);
+
+  // Shared DW grey-plate UI helpers (used by menu / settings / game-over).
+  void drawBevelPanel(int x, int y, int w, int h);
+  void drawMenuRow(int x, int y, int w, int h, const char* label,
+                   bool selected, const char* suffix = nullptr);
 };
 
 #endif

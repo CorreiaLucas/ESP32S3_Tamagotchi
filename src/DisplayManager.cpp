@@ -1,5 +1,6 @@
 #include "DisplayManager.h"
 #include "Sprites.h"
+#include <string.h>
 
 DisplayManager::DisplayManager()
 #ifdef SIMULATOR_BUILD
@@ -71,7 +72,10 @@ void DisplayManager::clearScreen() {
 
 void DisplayManager::drawStatusPanelChrome() {
   // Static elements: draw once from forceFullRedraw, never on a stat tick.
-  drawBackgroundRegion(0, 0, SCREEN_WIDTH, STAT_ROW_Y0 + STAT_ROW_H * 3 + 2);
+  // Erase a generous strip across the FULL width so no stale pixels from a
+  // previous (taller/wider) bar layout survive. 32px comfortably covers the
+  // old 3-row layout; the forest background is repainted underneath.
+  drawBackgroundRegion(0, 0, SCREEN_WIDTH, 34);
 
   const uint16_t iconColors[3] = { STAT_HUNGER_COLOR, STAT_HAPPY_COLOR, STAT_ENERGY_COLOR };
   const bool isHeart[3] = { true, false, false };
@@ -87,27 +91,67 @@ void DisplayManager::drawStatusPanelChrome() {
     } else {
       tft.fillCircle(originX + STAT_ICON_X + 3, y + 3, 3, iconColors[row]);
     }
-    // Bar track (static outline + background)
-    tft.fillRect(originX + STAT_BAR_X, y, STAT_BAR_W, STAT_BAR_H, STAT_BAR_BG);
-    tft.drawRect(originX + STAT_BAR_X, y, STAT_BAR_W, STAT_BAR_H, TFT_WHITE);
+    // ---- Grey plate (static parts of the DW-style bar) ----
+    int px = originX + STAT_BAR_X;   // plate left
+    int py = y;                      // plate top (6px tall)
+
+    // Grey body between the borders.
+    tft.fillRect(px + 1, py + 1, STAT_BAR_W - 2, STAT_PLATE_H - 2, STAT_PLATE_GREY);
+    // Black top & bottom frame (inset 1px -> transparent corners).
+    tft.drawFastHLine(px + 1, py, STAT_BAR_W - 2, STAT_FRAME_COLOR);
+    tft.drawFastHLine(px + 1, py + STAT_PLATE_H - 1, STAT_BAR_W - 2, STAT_FRAME_COLOR);
+    // Black left & right vertical borders (rows 1..4).
+    tft.drawFastVLine(px, py + 1, STAT_PLATE_H - 2, STAT_FRAME_COLOR);
+    tft.drawFastVLine(px + STAT_BAR_W - 1, py + 1, STAT_PLATE_H - 2, STAT_FRAME_COLOR);
+    // White bevel on the left: 2px on the top & bottom body rows, 1px between.
+    tft.drawFastHLine(px + 1, py + 1, 2, STAT_BEVEL_WHITE);
+    tft.drawFastHLine(px + 1, py + STAT_PLATE_H - 2, 2, STAT_BEVEL_WHITE);
+    tft.drawPixel(px + 1, py + 2, STAT_BEVEL_WHITE);
+    tft.drawPixel(px + 1, py + 3, STAT_BEVEL_WHITE);
+    // Dark-grey dividers near each end (full inner height).
+    tft.drawFastVLine(px + STAT_LEFT_DIV,  py + 1, STAT_PLATE_H - 2, STAT_PLATE_DGREY);
+    tft.drawFastVLine(px + STAT_RIGHT_DIV, py + 1, STAT_PLATE_H - 2, STAT_PLATE_DGREY);
+    // Black borders of the 2px fill lane (rows 2..3).
+    tft.drawFastVLine(px + STAT_FILL_BL, py + 2, 2, STAT_FRAME_COLOR);
+    tft.drawFastVLine(px + STAT_FILL_BR, py + 2, 2, STAT_FRAME_COLOR);
+
+    // Number box hugging the right end of the plate.
+    int boxY = y + (STAT_PLATE_H - STAT_NUM_H) / 2;   // vertically centered (== y-1)
+    tft.fillRect(originX + STAT_NUM_X, boxY, STAT_NUM_W, STAT_NUM_H, STAT_NUM_BG);
+    tft.drawRect(originX + STAT_NUM_X, boxY, STAT_NUM_W, STAT_NUM_H, STAT_NUM_FRAME);
   }
 }
 
 void DisplayManager::drawStatBar(int row, uint16_t iconColor, uint16_t barColor, int value, bool isHeartUnused) {
   int y = originY + STAT_ROW_Y0 + row * STAT_ROW_H;
+  int px = originX + STAT_BAR_X;
 
-  // Refill only the bar's interior, not the border.
-  tft.fillRect(originX + STAT_BAR_X + 1, y + 1, STAT_BAR_W - 2, STAT_BAR_H - 2, STAT_BAR_BG);
-  int fillWidth = ((STAT_BAR_W - 2) * value) / 100;
+  // ---- Fill lane (dynamic) : 2px tall, inside the black lane borders ----
+  int fx0 = px + STAT_FILL_X0;
+  int fy  = y + 2;                       // top row of the 2px lane
+  int laneW = STAT_FILL_W;               // total fillable width
+
+  // Clear the lane to grey (empty portion of the bar reads as plate grey).
+  tft.fillRect(fx0, fy, laneW, 2, STAT_PLATE_GREY);
+
+  int fillWidth = (laneW * value) / 100;
   if (fillWidth > 0) {
-    tft.fillRect(originX + STAT_BAR_X + 1, y + 1, fillWidth, STAT_BAR_H - 2, barColor);
+    uint16_t hi = barColor | STAT_HILITE_OR;   // light shade for the top row
+    tft.drawFastHLine(fx0, fy,     fillWidth, hi);        // l : light top
+    tft.drawFastHLine(fx0, fy + 1, fillWidth, barColor);  // r : base bottom
   }
 
-  // Right-aligned number, clear just that small region first.
-  tft.fillRect(originX + STAT_NUM_X, y, SCREEN_WIDTH - STAT_NUM_X - 2, STAT_ROW_H - 2, TFT_BLACK);
+  // ---- Right-aligned number inside the box that hugs the plate ----
+  int boxY = y + (STAT_PLATE_H - STAT_NUM_H) / 2;
+  // Clear the box interior (keep its static grey frame).
+  tft.fillRect(originX + STAT_NUM_X + 1, boxY + 1, STAT_NUM_W - 2, STAT_NUM_H - 2, STAT_NUM_BG);
   tft.setTextSize(1);
   tft.setTextColor(TFT_WHITE);
-  tft.setCursor(originX + STAT_NUM_X, y + 2);
+  // Right-justify inside the box: ~6px per glyph (5 glyph + 1 spacing).
+  int digits = (value >= 100) ? 3 : (value >= 10 ? 2 : 1);
+  int textW = digits * 6 - 1;
+  int boxRight = originX + STAT_NUM_X + STAT_NUM_W - 2;
+  tft.setCursor(boxRight - textW, boxY + 1);
   tft.print(value);
 }
 
@@ -192,76 +236,151 @@ void DisplayManager::drawPoops(int count) {
   }
 }
 
-void DisplayManager::drawMenu(int selectedIndex) {
-  const char* menuItems[] = { "Feed", "Play", "Sleep", "Clean", "Settings", "Exit" };
+// ---- Shared DW grey-plate helpers -----------------------------------------
 
-  tft.fillRoundRect( originX +8, originY + 6, 112, 116, 6, TFT_BLACK);
-  tft.drawRoundRect( originX +8, originY + 6, 112, 116, 6, TFT_WHITE);
+// A raised grey window: grey body, black frame, white top/left bevel and
+// dark-grey bottom/right shadow (same language as the stat bars).
+void DisplayManager::drawBevelPanel(int x, int y, int w, int h) {
+  tft.fillRect(x, y, w, h, STAT_PLATE_GREY);
+  tft.drawRect(x, y, w, h, STAT_FRAME_COLOR);
+  tft.drawFastHLine(x + 1, y + 1, w - 2, STAT_BEVEL_WHITE);
+  tft.drawFastVLine(x + 1, y + 1, h - 2, STAT_BEVEL_WHITE);
+  tft.drawFastHLine(x + 1, y + h - 2, w - 2, STAT_PLATE_DGREY);
+  tft.drawFastVLine(x + w - 2, y + 1, h - 2, STAT_PLATE_DGREY);
+}
+
+// One menu row as a beveled plate. Selected rows are a lighter (raised)
+// plate with dark text and a '>' arrow; others are plate grey with light
+// text. Optional right-aligned suffix (e.g. "ON"/"OFF").
+void DisplayManager::drawMenuRow(int x, int y, int w, int h, const char* label,
+                                 bool selected, const char* suffix) {
+  uint16_t body   = selected ? MENU_PLATE_LGREY : STAT_PLATE_GREY;
+  uint16_t light  = selected ? STAT_BEVEL_WHITE : MENU_PLATE_LGREY;
+  uint16_t textCol = selected ? MENU_TEXT_DARK : MENU_TEXT_LIGHT;
+
+  tft.fillRect(x, y, w, h, body);
+  tft.drawRect(x, y, w, h, STAT_FRAME_COLOR);
+  tft.drawFastHLine(x + 1, y + 1, w - 2, light);
+  tft.drawFastVLine(x + 1, y + 1, h - 2, light);
+  tft.drawFastHLine(x + 1, y + h - 2, w - 2, STAT_PLATE_DGREY);
+  tft.drawFastVLine(x + w - 2, y + 1, h - 2, STAT_PLATE_DGREY);
+
+  tft.setTextSize(1);
+  tft.setTextColor(textCol);
+  tft.setCursor(x + 5, y + (h - 7) / 2);
+  tft.print(selected ? "> " : "  ");
+  tft.print(label);
+  if (suffix) {
+    // Right-align the suffix inside the row.
+    int sw = (int)strlen(suffix) * 6;
+    tft.setCursor(x + w - sw - 5, y + (h - 7) / 2);
+    tft.print(suffix);
+  }
+}
+
+void DisplayManager::drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex) {
+  tft.fillRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_BLACK);
+  tft.drawRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_WHITE);
   tft.setTextSize(1);
 
-  for (int i = 0; i < 6; i++) {
+  for (int i = 0; i < itemCount; i++) {
     if (i == selectedIndex) {
       tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor( originX +18, originY + 16 + (i * 17));
+      tft.setCursor(originX + 18, originY + 16 + (i * 17));
       tft.print("> ");
     } else {
       tft.setTextColor(TFT_WHITE);
-      tft.setCursor( originX +18, originY + 16 + (i * 17));
+      tft.setCursor(originX + 18, originY + 16 + (i * 17));
       tft.print("  ");
     }
-    tft.println(menuItems[i]);
+
+    tft.println(items[i]);
   }
+}
+
+void DisplayManager::drawStatsPage(int hp, int maxHp, int ap, int dp) {
+  tft.fillRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_BLACK);
+  tft.drawRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_WHITE);
+  tft.setTextSize(1);
+
+  tft.setTextColor(TFT_SAGE_GREEN);
+  tft.setCursor(originX + 14, originY + 10);
+  tft.print("Stats");
+  tft.drawFastHLine(originX + 12, originY + 20, 104, TFT_WHITE);
+
+  tft.setTextColor(TFT_WHITE);
+
+  tft.setCursor(originX + 16, originY + 30);
+  tft.printf("HP: %d/%d", hp, maxHp);
+
+  tft.setCursor(originX + 16, originY + 46);
+  tft.printf("AP: %d", ap);
+
+  tft.setCursor(originX + 16, originY + 62);
+  tft.printf("DP: %d", dp);
+
+  tft.setTextColor(TFT_SAGE_GREEN);
+  tft.setCursor(originX + 16, originY + 106);
+  tft.print("OK: Back");
+}
+
+void DisplayManager::drawDigivolutionPage() {
+  tft.fillRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_BLACK);
+  tft.drawRoundRect(originX + 8, originY + 6, 112, 116, 6, TFT_WHITE);
+  tft.setTextSize(1);
+
+  tft.setTextColor(TFT_SAGE_GREEN);
+  tft.setCursor(originX + 14, originY + 10);
+  tft.print("Digivolution");
+  tft.drawFastHLine(originX + 12, originY + 20, 104, TFT_WHITE);
+
+  tft.setTextColor(TFT_WHITE);
+  tft.setCursor(originX + 16, originY + 55);
+  tft.print("Coming soon");
+
+  tft.setTextColor(TFT_SAGE_GREEN);
+  tft.setCursor(originX + 16, originY + 106);
+  tft.print("OK: Back");
 }
 
 void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
-  tft.fillRoundRect( originX +8, originY + 30, 112, 68, 6, TFT_BLACK);
-  tft.drawRoundRect( originX +8, originY + 30, 112, 68, 6, TFT_WHITE);
-  tft.setTextSize(1);
+  const int PX = originX + 8,  PY = originY + 30;
+  const int PW = 112,          PH = 68;
+  drawBevelPanel(PX, PY, PW, PH);
 
-  const char* options[] = { "Sound: ", "Back" };
+  const int ITEM_X = PX + 4;
+  const int ITEM_W = PW - 8;
+  const int ITEM_H = 15;
+  const int ITEM_Y0 = PY + 8;
+  const int ITEM_PITCH = 20;
 
-  for (int i = 0; i < 2; i++) {
-    if (i == selectedIndex) {
-      tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor( originX +18, originY + 44 + (i * 20));
-      tft.print("> ");
-    } else {
-      tft.setTextColor(TFT_WHITE);
-      tft.setCursor( originX +18, originY + 44 + (i * 20));
-      tft.print("  ");
-    }
-    tft.print(options[i]);
-
-    if (i == 0) {
-      tft.println(isMuted ? "OFF" : "ON");
-    } else {
-      tft.println();
-    }
-  }
+  // Row 0: Sound with ON/OFF suffix; Row 1: Back.
+  drawMenuRow(ITEM_X, ITEM_Y0, ITEM_W, ITEM_H, "Sound",
+              selectedIndex == 0, isMuted ? "OFF" : "ON");
+  drawMenuRow(ITEM_X, ITEM_Y0 + ITEM_PITCH, ITEM_W, ITEM_H, "Back",
+              selectedIndex == 1, nullptr);
 }
 
 void DisplayManager::drawGameOver(int selectedIndex) {
-  tft.fillRoundRect( originX +8, originY + 34, 112, 60, 6, TFT_BLACK);
-  tft.drawRoundRect( originX +8, originY + 34, 112, 60, 6, TFT_WHITE);
-  tft.setTextSize(1);
+  const int PX = originX + 8,  PY = originY + 34;
+  const int PW = 112,          PH = 60;
+  drawBevelPanel(PX, PY, PW, PH);
 
+  // "R.I.P." title, centered near the top of the panel.
+  tft.setTextSize(1);
   tft.setTextColor(TFT_RED);
-  tft.setCursor( originX +46, originY + 42);
+  tft.setCursor(PX + (PW - 6 * 6) / 2, PY + 6);
   tft.print("R.I.P.");
 
   const char* options[] = { "Restart", "Leave" };
-
+  const int ITEM_X = PX + 4;
+  const int ITEM_W = PW - 8;
+  const int ITEM_H = 14;
+  const int ITEM_Y0 = PY + 20;
+  const int ITEM_PITCH = 17;
   for (int i = 0; i < 2; i++) {
-    if (i == selectedIndex) {
-      tft.setTextColor(TFT_SAGE_GREEN);
-      tft.setCursor( originX +24, originY + 60 + (i * 16));
-      tft.print("> ");
-    } else {
-      tft.setTextColor(TFT_WHITE);
-      tft.setCursor( originX +24, originY + 60 + (i * 16));
-      tft.print("  ");
-    }
-    tft.println(options[i]);
+    drawMenuRow(ITEM_X, ITEM_Y0 + i * ITEM_PITCH, ITEM_W, ITEM_H,
+                options[i], i == selectedIndex);
   }
 }
 

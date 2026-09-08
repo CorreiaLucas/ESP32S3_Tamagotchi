@@ -16,6 +16,10 @@ private:
   int starveTicks;
   int age;
   int uptimeMinutes;
+  int hp;
+  int maxHp;
+  int ap;
+  int dp;
 
   uint32_t lastMinuteTime;
   uint32_t lastStatUpdateTime;
@@ -54,6 +58,18 @@ public:
   }
   int getAge() const {
     return age;
+  }
+  int getHp() const {
+    return hp;
+  }
+  int getMaxHp() const {
+    return maxHp;
+  }
+  int getAp() const {
+    return ap;
+  }
+  int getDp() const {
+    return dp;
   }
 };
 

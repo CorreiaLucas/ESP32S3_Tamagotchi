@@ -114,11 +114,13 @@ void CharacterManager::update(DisplayManager& display) {
         dy = -dy + random(-1, 2);
         if (dy >= 0) dy = -1;
       }
+      
+      const uint16_t* activeWalkFrame = (dy < 0) ? walk_back_frames[currentFrame] : walk_frames[currentFrame];
 
       if (facingRight) {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, walk_frames[currentFrame]);
+        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, activeWalkFrame);
       } else {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, walk_frames[currentFrame]);
+        display.drawSprite(x, y, spriteWidth, spriteHeight, activeWalkFrame);
       }
     }
   }

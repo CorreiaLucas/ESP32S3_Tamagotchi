@@ -36,6 +36,7 @@ extern const uint16_t treat_frame[] PROGMEM;
 extern const uint16_t background_data_forest[] PROGMEM;
 
 extern const uint16_t* const walk_frames[4];
+extern const uint16_t* const walk_back_frames[4];
 extern const uint16_t* const sleep_frames[4];
 extern const uint16_t* const eat_frames[4];
 extern const uint16_t* const play_frames[4];

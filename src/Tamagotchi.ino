@@ -6,6 +6,10 @@
 #include "CharacterManager.h"
 enum GameState { STATE_MAIN,
                  STATE_MENU,
+                 STATE_ACTION_MENU,
+                 STATE_DIGIMON_MENU,
+                 STATE_STATS_PAGE,
+                 STATE_DIGIVOLUTION_PAGE,
                  STATE_SETTINGS,
                  STATE_DEAD,
                  STATE_MINIGAME };
@@ -31,7 +35,13 @@ int menuSelection = 0;
 int mgLastScore = -1;
 int mgLastTime = -1;
 
-const int NUM_MENU_ITEMS = 6;
+const char* topMenuItems[]     = { "Action", "Digimon", "Settings", "Exit" };
+const char* actionMenuItems[]  = { "Feed", "Play", "Sleep", "Clean", "Back" };
+const char* digimonMenuItems[] = { "Stats", "Digivolution", "Back" };
+
+const int NUM_MENU_ITEMS = 4;
+const int NUM_ACTION_ITEMS = 5;
+const int NUM_DIGIMON_ITEMS = 3;
 
 uint32_t mgStartTime = 0;
 
@@ -101,89 +111,143 @@ void loop() {
       sound.playClick();
       currentState = STATE_MENU;
       menuSelection = 0;
-      display.drawMenu(menuSelection);
+    display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
     }
-  } else if (currentState == STATE_MENU) {
-    if (input.isLeftPressed()) {
-      sound.playClick();
-      menuSelection--;
-      if (menuSelection < 0) menuSelection = NUM_MENU_ITEMS - 1;
-      display.drawMenu(menuSelection);
-    }
-
-    if (input.isRightPressed()) {
-      sound.playClick();
-      menuSelection++;
-      if (menuSelection >= NUM_MENU_ITEMS) menuSelection = 0;
-      display.drawMenu(menuSelection);
-    }
-
-    if (input.isOkPressed()) {
-      sound.playClick();
-      if (menuSelection == 0) {
-        if (pet.isSleeping()) pet.wakeUp();
-        pet.feed();
-        cat.setAction(EATING);
-        currentState = STATE_MAIN;
-      } else if (menuSelection == 1) {
-        if (pet.isSleeping()) pet.wakeUp();
-        currentState = STATE_MINIGAME;
-        cat.setAction(MINIGAME);
-        mgScore = 0;
-        mgStartTime = millis();
-        mgTreatY = 14;
-        mgTreatX = random(2, SCREEN_WIDTH - 18);
-        display.clearScreen();
-      } else if (menuSelection == 2) {
-        pet.forceSleep();
-        cat.setAction(SLEEPING);
-        currentState = STATE_MAIN;
-      } else if (menuSelection == 3) {
-        pet.clean();
-        sound.playHappyTone();
-        currentState = STATE_MAIN;
-      } else if (menuSelection == 4) {
-        currentState = STATE_SETTINGS;
-        menuSelection = 0;
-        display.drawSettings(menuSelection, sound.getMuted());
-      } else if (menuSelection == 5) {
-        currentState = STATE_MAIN;
-      }
-      if (currentState == STATE_MAIN) {
-        display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-        lastHunger = -1;
-        lastPoopCount = -1;
-        lastCatX = cat.getX();
-      }
-    }
-  } else if (currentState == STATE_SETTINGS) {
-    if (input.isLeftPressed()) {
-      sound.playClick();
-      menuSelection--;
-      if (menuSelection < 0) menuSelection = 1;
+} else if (currentState == STATE_MENU) {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = NUM_MENU_ITEMS - 1;
+    display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= NUM_MENU_ITEMS) menuSelection = 0;
+    display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
+  }
+  if (input.isOkPressed()) {
+    sound.playClick();
+    if (menuSelection == 0) {
+      currentState = STATE_ACTION_MENU;
+      menuSelection = 0;
+      display.drawMenu("Action", actionMenuItems, NUM_ACTION_ITEMS, menuSelection);
+    } else if (menuSelection == 1) {
+      currentState = STATE_DIGIMON_MENU;
+      menuSelection = 0;
+      display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+    } else if (menuSelection == 2) {
+      currentState = STATE_SETTINGS;
+      menuSelection = 0;
       display.drawSettings(menuSelection, sound.getMuted());
-    }
-
-    if (input.isRightPressed()) {
-      sound.playClick();
-      menuSelection++;
-      if (menuSelection > 1) menuSelection = 0;
-      display.drawSettings(menuSelection, sound.getMuted());
-    }
-
-    if (input.isOkPressed()) {
-      sound.playClick();
-
-      if (menuSelection == 0) {
-        sound.toggleMute();
-        display.drawSettings(menuSelection, sound.getMuted());
-      } else if (menuSelection == 1) {
-        currentState = STATE_MENU;
-        menuSelection = 4;
-        display.drawMenu(menuSelection);
-      }
+    } else if (menuSelection == 3) {
+      currentState = STATE_ACTION_MENU;
+      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
+      lastHunger = -1;
+      lastPoopCount = -1;
+      lastCatX = cat.getX();
     }
   }
+}
+
+else if (currentState == STATE_ACTION_MENU) {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = NUM_ACTION_ITEMS - 1;
+    display.drawMenu("Action", actionMenuItems, NUM_ACTION_ITEMS, menuSelection);
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= NUM_ACTION_ITEMS) menuSelection = 0;
+    display.drawMenu("Action", actionMenuItems, NUM_ACTION_ITEMS, menuSelection);
+  }
+  if (input.isOkPressed()) {
+    sound.playClick();
+    bool backToMain = true;
+    if (menuSelection == 0) {          // Feed
+      if (pet.isSleeping()) pet.wakeUp();
+      pet.feed();
+      cat.setAction(EATING);
+    } else if (menuSelection == 1) {   // Play
+      if (pet.isSleeping()) pet.wakeUp();
+      currentState = STATE_MINIGAME;
+      cat.setAction(MINIGAME);
+      mgScore = 0;
+      mgStartTime = millis();
+      mgTreatY = 20;
+      mgTreatX = random(20, 100);      // clamped to your 128px screen width
+      display.clearScreen();
+      backToMain = false;
+    } else if (menuSelection == 2) {   // Sleep
+      pet.forceSleep();
+      cat.setAction(SLEEPING);
+    } else if (menuSelection == 3) {   // Clean
+      pet.clean();
+      sound.playHappyTone();
+    } else if (menuSelection == 4) {   // Back
+      currentState = STATE_MENU;
+      menuSelection = 0;
+      display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
+      backToMain = false;
+    }
+    if (backToMain) {
+      currentState = STATE_MAIN;
+      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
+      lastHunger = -1;
+      lastPoopCount = -1;
+      lastCatX = cat.getX();
+    }
+  }
+}
+
+else if (currentState == STATE_DIGIMON_MENU) {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = NUM_DIGIMON_ITEMS - 1;
+    display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= NUM_DIGIMON_ITEMS) menuSelection = 0;
+    display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+  }
+  if (input.isOkPressed()) {
+    sound.playClick();
+    if (menuSelection == 0) {
+      currentState = STATE_STATS_PAGE;
+      display.drawStatsPage(pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp());
+    } else if (menuSelection == 1) {
+      currentState = STATE_DIGIVOLUTION_PAGE;
+      display.drawDigivolutionPage();
+    } else if (menuSelection == 2) {   // Back
+      currentState = STATE_MENU;
+      menuSelection = 0;
+      display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
+    }
+  }
+}
+
+else if (currentState == STATE_STATS_PAGE) {
+  if (input.isOkPressed()) {
+    sound.playClick();
+    currentState = STATE_DIGIMON_MENU;
+    menuSelection = 0;
+    display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+  }
+}
+
+else if (currentState == STATE_DIGIVOLUTION_PAGE) {
+  if (input.isOkPressed()) {
+    sound.playClick();
+    currentState = STATE_DIGIMON_MENU;
+    menuSelection = 0;
+    display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+  }
+}
 
   else if (currentState == STATE_MINIGAME) {
     int timeLeft = 15 - ((millis() - mgStartTime) / 1000);
