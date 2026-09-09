@@ -42,8 +42,25 @@ const char* digimonMenuItems[] = { "Stats", "Digivolution", "Back" };
 const int NUM_MENU_ITEMS = 4;
 const int NUM_ACTION_ITEMS = 5;
 const int NUM_DIGIMON_ITEMS = 3;
+const int NUM_SETTINGS_ITEMS = 2;   // Sound, Back
 
 uint32_t mgStartTime = 0;
+
+// Return to the main screen AND immediately repaint the whole scene in one
+// shot: background + status chrome + stat bars + the digimon itself. Without
+// the explicit cat draw here, the pet only reappears on a later animation
+// tick (the "background only, then UI, then digimon seconds later" bug).
+void returnToMain() {
+  currentState = STATE_MAIN;
+  display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
+  display.drawPoops(pet.getPoopCount());
+  cat.update(display);   // draw the pet now instead of waiting for a tick
+  lastHunger = -1;
+  lastHappiness = -1;
+  lastEnergy = -1;
+  lastPoopCount = pet.getPoopCount();
+  lastCatX = cat.getX();
+}
 
 void setup() {
   Serial.begin(115200);
@@ -140,12 +157,34 @@ void loop() {
       currentState = STATE_SETTINGS;
       menuSelection = 0;
       display.drawSettings(menuSelection, sound.getMuted());
-    } else if (menuSelection == 3) {
-      currentState = STATE_ACTION_MENU;
-      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-      lastHunger = -1;
-      lastPoopCount = -1;
-      lastCatX = cat.getX();
+    } else if (menuSelection == 3) {   // Exit -> back to main screen
+      returnToMain();
+    }
+  }
+}
+
+else if (currentState == STATE_SETTINGS) {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = NUM_SETTINGS_ITEMS - 1;
+    display.drawSettings(menuSelection, sound.getMuted());
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= NUM_SETTINGS_ITEMS) menuSelection = 0;
+    display.drawSettings(menuSelection, sound.getMuted());
+  }
+  if (input.isOkPressed()) {
+    sound.playClick();
+    if (menuSelection == 0) {          // Sound: toggle mute, stay on the page
+      sound.toggleMute();
+      display.drawSettings(menuSelection, sound.getMuted());
+    } else if (menuSelection == 1) {   // Back -> top menu
+      currentState = STATE_MENU;
+      menuSelection = 0;
+      display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
     }
   }
 }
@@ -193,11 +232,7 @@ else if (currentState == STATE_ACTION_MENU) {
       backToMain = false;
     }
     if (backToMain) {
-      currentState = STATE_MAIN;
-      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-      lastHunger = -1;
-      lastPoopCount = -1;
-      lastCatX = cat.getX();
+      returnToMain();
     }
   }
 }
@@ -219,7 +254,7 @@ else if (currentState == STATE_DIGIMON_MENU) {
     sound.playClick();
     if (menuSelection == 0) {
       currentState = STATE_STATS_PAGE;
-      display.drawStatsPage(pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp());
+      display.drawStatsPage(pet.getName(),pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp());
     } else if (menuSelection == 1) {
       currentState = STATE_DIGIVOLUTION_PAGE;
       display.drawDigivolutionPage();
@@ -263,11 +298,7 @@ else if (currentState == STATE_DIGIVOLUTION_PAGE) {
       if (mgScore >= 5) pet.play();
 
       cat.setAction(PLAYING);
-      currentState = STATE_MAIN;
-      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-
-      lastHunger = -1;
-      lastCatX = cat.getX();
+      returnToMain();
       mgLastScore = -1;
       mgLastTime = -1;
       return;
@@ -325,11 +356,7 @@ else if (currentState == STATE_DIGIVOLUTION_PAGE) {
       if (menuSelection == 0) {
         pet.reset();
         cat.setAction(WALKING);
-        currentState = STATE_MAIN;
-        display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-        lastHunger = -1;
-        lastPoopCount = -1;
-        lastCatX = cat.getX();
+        returnToMain();
       } else if (menuSelection == 1) {
         display.drawGameOver(menuSelection);
       }

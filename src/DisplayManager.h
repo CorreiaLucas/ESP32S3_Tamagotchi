@@ -103,6 +103,8 @@ private:
   // centers the 128x128 UI inside the 240x240 panel (see begin()).
   int originX = 0;
   int originY = 0;
+  int profileSpriteWidth;
+  int profileSpriteHeight;
 public:
   DisplayManager();
   void begin();
@@ -120,8 +122,9 @@ public:
   void drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame);
 
   void drawPoops(int count);
+  void drawProfileSprite(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
   void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
-  void drawStatsPage(int hp, int maxHp, int ap, int dp);
+  void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp);
   void drawDigivolutionPage();
   void drawGameOver(int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);

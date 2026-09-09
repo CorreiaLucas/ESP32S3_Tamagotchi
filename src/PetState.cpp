@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 PetState::PetState()
-  : hunger(50), happiness(50), energy(100), sleeping(false), lastStatUpdateTime(0) {}
+  : name("Terriermon"), hunger(50), happiness(50), energy(100), sleeping(false), lastStatUpdateTime(0) {}
 
 void PetState::begin() {
   preferences.begin("pet_data", false);

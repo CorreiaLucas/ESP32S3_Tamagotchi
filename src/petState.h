@@ -9,6 +9,7 @@ private:
   bool sleeping;
   bool dead;
 
+  char name[16];
   int hunger;
   int happiness;
   int energy;
@@ -38,6 +39,9 @@ public:
   void reset();
   void addDay();
 
+  char* getName() {
+    return name;
+  }
   int getHunger() const {
     return hunger;
   }
