@@ -98,24 +98,63 @@
 class DisplayManager {
 private:
   DisplayDriver tft;
-  GFXcanvas16 petBuffer;
+  // Full 128x128 offscreen canvas. The whole main scene (background + status
+  // chrome + stat bars + pet) is composited here in RAM, then pushed to the
+  // panel in ONE drawRGBBitmap. A single blit means no visible top-to-bottom
+  // scanline wipe and no "bars vanish then reappear" flicker on menu exit.
+  // 128*128*2 = 32 KB (fits easily; board has PSRAM).
+  GFXcanvas16 frameBuffer;
+  // Shared draw target for the grey-plate helpers (drawBevelPanel /
+  // drawMenuRow). Points at frameBuffer when compositing a full menu screen
+  // for a single-blit push, avoiding the per-call flicker of drawing straight
+  // to the panel. Coordinates passed to those helpers are in the target's own
+  // space (canvas = no origin offset; panel = includes originX/originY).
+  Adafruit_GFX* gfx = nullptr;
   // Draw-origin offset. 0 on real hardware; on the Wokwi ST7789 stand-in it
   // centers the 128x128 UI inside the 240x240 panel (see begin()).
   int originX = 0;
   int originY = 0;
   int profileSpriteWidth;
   int profileSpriteHeight;
+
+  // Composite the full main scene into frameBuffer (does NOT push to panel).
+  void composeMainScene(int hunger, int happiness, int energy,
+                        int petX, int petY, int petW, int petH,
+                        const uint16_t* petFrame, bool petFlip,
+                        int poopCount);
+  // Draw the status chrome + stat bars into the frameBuffer canvas.
+  void composeStatusPanel(int hunger, int happiness, int energy);
+  // Blit the whole frameBuffer to the panel in one transaction.
+  void pushFrame();
+  // Push a RAM RGB565 buffer, byte-swapping under SIMULATOR_BUILD so RAM
+  // pushes match the PROGMEM background's byte order (Wokwi ST7789 quirk).
+  void pushRGBBuf(int x, int y, uint16_t* buf, int w, int h);
+  // Fill the whole frameBuffer canvas with the forest background (canvas
+  // coords, no origin offset). Used as the base layer for buffered menus.
+  void seedBufferBackground();
 public:
   DisplayManager();
   void begin();
 
   void forceFullRedraw(int hunger, int happiness, int energy);
+  // Buffered full main-scene redraw (background+chrome+bars+pet) in a single
+  // blit. Use this on menu exit to avoid the scanline wipe / bar flicker.
+  void renderMainScene(int hunger, int happiness, int energy,
+                       int petX, int petY, int petW, int petH,
+                       const uint16_t* petFrame, bool petFlip, int poopCount);
   void drawBackground();
   void drawBackgroundRegion(int x, int y, int w, int h);
   void clearScreen();
   void drawStatusPanelChrome();
   void drawMainScreen(int hunger, int happiness, int energy);
   void clearTrail(int oldX, int newX, int y, int width, int height);
+  // Repaint the forest background over a sprite's whole bounding box
+  // (erases both X and Y movement trails; size-agnostic).
+  void clearSpriteAt(int x, int y, int width, int height);
+  // Repaint background ONLY over the strip the sprite vacated when it
+  // moved from (oldX,oldY) to (newX,newY) -- i.e. the old box minus the
+  // new box. Leaves the overlap untouched so the pet never flickers.
+  void clearSpriteMargin(int oldX, int oldY, int newX, int newY, int w, int h);
 
   void drawTransparentImage(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
   void drawSprite(int x, int y, int width, int height, const uint16_t* frame);
@@ -124,8 +163,9 @@ public:
   void drawPoops(int count);
   void drawProfileSprite(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
   void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
-  void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp);
-  void drawDigivolutionPage();
+  void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp,
+                     const uint16_t* profileFrame, int profileSize);
+  void drawDigivolutionPage(const char* currentName, const char* nextName);
   void drawGameOver(int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
 
@@ -137,6 +177,8 @@ public:
   void drawBevelPanel(int x, int y, int w, int h);
   void drawMenuRow(int x, int y, int w, int h, const char* label,
                    bool selected, const char* suffix = nullptr);
+  void enterScreensaver();
+  void exitScreensaver(int hunger, int happiness, int energy);
 };
 
 #endif

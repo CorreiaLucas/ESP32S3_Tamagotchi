@@ -10,6 +10,7 @@ enum GameState { STATE_MAIN,
                  STATE_DIGIMON_MENU,
                  STATE_STATS_PAGE,
                  STATE_DIGIVOLUTION_PAGE,
+                 STATE_TRAINING_MENU,
                  STATE_SETTINGS,
                  STATE_DEAD,
                  STATE_MINIGAME };
@@ -37,12 +38,15 @@ int mgLastTime = -1;
 
 const char* topMenuItems[]     = { "Action", "Digimon", "Settings", "Exit" };
 const char* actionMenuItems[]  = { "Feed", "Play", "Sleep", "Clean", "Back" };
-const char* digimonMenuItems[] = { "Stats", "Digivolution", "Back" };
+const char* digimonMenuItems[] = { "Stats", "Training", "Digivolution", "Back" };
+const char* trainingMenuItems[] = { "Train HP", "Train AP", "Train DP", "Back" };
+
 
 const int NUM_MENU_ITEMS = 4;
 const int NUM_ACTION_ITEMS = 5;
-const int NUM_DIGIMON_ITEMS = 3;
-const int NUM_SETTINGS_ITEMS = 2;   // Sound, Back
+const int NUM_DIGIMON_ITEMS = 4;
+const int NUM_SETTINGS_ITEMS = 3;  
+const int NUM_TRAINING_ITEMS = 4;
 
 uint32_t mgStartTime = 0;
 
@@ -52,9 +56,14 @@ uint32_t mgStartTime = 0;
 // tick (the "background only, then UI, then digimon seconds later" bug).
 void returnToMain() {
   currentState = STATE_MAIN;
-  display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-  display.drawPoops(pet.getPoopCount());
-  cat.update(display);   // draw the pet now instead of waiting for a tick
+  // Composite the ENTIRE scene (background + poops + pet + chrome + bars) in
+  // an offscreen buffer and push it in ONE blit. This eliminates both the
+  // visible top-to-bottom scanline wipe and the "bars vanish then reappear"
+  // flicker that a multi-call forceFullRedraw produced on menu exit.
+  display.renderMainScene(pet.getHunger(), pet.getHappiness(), pet.getEnergy(),
+                          cat.getX(), cat.getY(), cat.getWidth(), cat.getHeight(),
+                          cat.getCurrentFrame(), cat.getCurrentFlip(),
+                          pet.getPoopCount());
   lastHunger = -1;
   lastHappiness = -1;
   lastEnergy = -1;
@@ -64,11 +73,14 @@ void returnToMain() {
 
 void setup() {
   Serial.begin(115200);
+  Serial.println("Starting display init...");
 
   input.begin();
   sound.begin();
   pet.begin();
   display.begin();
+  Serial.println("Display init done");
+
   cat.begin();
 
   display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
@@ -76,19 +88,40 @@ void setup() {
   sound.playHappyTone();
 }
 
+unsigned long lastInputTime = 0;
+bool screensaverActive = false;
+const unsigned long SCREENSAVER_TIMEOUT = 60000;
+
 void loop() {
+  if (input.isAnyPressed()) {
+    lastInputTime = millis();
+    if (screensaverActive) {
+      screensaverActive = false;
+      display.exitScreensaver(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
+    }
+  }
+
+  if (!screensaverActive && millis() - lastInputTime > SCREENSAVER_TIMEOUT) {
+    display.enterScreensaver();
+    screensaverActive = true;
+  }
+
   if (currentState == STATE_MAIN) {
     pet.update();
+  }
 
-    if (pet.isDead()) {
-      cat.setAction(DEAD);
-      currentState = STATE_DEAD;
-      menuSelection = 0;
-      sound.playSadTone();
-      display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
-      display.drawGameOver(menuSelection);
-      return;
-    }
+  if (!screensaverActive) {
+    if(currentState == STATE_MAIN){
+      if (pet.isDead()) {
+        cat.setAction(DEAD);
+        currentState = STATE_DEAD;
+        menuSelection = 0;
+        sound.playSadTone();
+        display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
+        cat.update(display);          // <-- draw the dead pose ONCE here
+        display.drawGameOver(menuSelection);
+        return;
+      }
 
     bool isCritical = (pet.getHunger() <= 20 || pet.getHappiness() <= 20);
 
@@ -107,7 +140,8 @@ void loop() {
     cat.update(display);
 
     if (cat.getX() != lastCatX) {
-      display.clearTrail(lastCatX, cat.getX(), cat.getY(), 48, 48);
+      // Trail erase now happens inside cat.update() (full bounding box, correct
+      // sprite size). Just keep poops repainted and track the last X.
       lastCatX = cat.getX();
       display.drawPoops(pet.getPoopCount());
     }
@@ -130,7 +164,8 @@ void loop() {
       menuSelection = 0;
     display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
     }
-} else if (currentState == STATE_MENU) {
+  }
+  else if (currentState == STATE_MENU) {
   if (input.isLeftPressed()) {
     sound.playClick();
     menuSelection--;
@@ -181,7 +216,13 @@ else if (currentState == STATE_SETTINGS) {
     if (menuSelection == 0) {          // Sound: toggle mute, stay on the page
       sound.toggleMute();
       display.drawSettings(menuSelection, sound.getMuted());
-    } else if (menuSelection == 1) {   // Back -> top menu
+    } else if (menuSelection == 1) {   // Reset
+      pet.reset();
+      cat.setAction(WALKING);
+      menuSelection = 0;
+      returnToMain();
+    }
+    else if (menuSelection == 2) {   // Back -> top menu
       currentState = STATE_MENU;
       menuSelection = 0;
       display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
@@ -208,7 +249,7 @@ else if (currentState == STATE_ACTION_MENU) {
     if (menuSelection == 0) {          // Feed
       if (pet.isSleeping()) pet.wakeUp();
       pet.feed();
-      cat.setAction(EATING);
+      cat.setAction(HAPPY);              // eating a treat -> happy animation
     } else if (menuSelection == 1) {   // Play
       if (pet.isSleeping()) pet.wakeUp();
       currentState = STATE_MINIGAME;
@@ -254,11 +295,25 @@ else if (currentState == STATE_DIGIMON_MENU) {
     sound.playClick();
     if (menuSelection == 0) {
       currentState = STATE_STATS_PAGE;
-      display.drawStatsPage(pet.getName(),pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp());
-    } else if (menuSelection == 1) {
+      display.drawStatsPage(pet.getName(), pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp(),
+                            cat.getDigimon() ? cat.getDigimon()->profile : nullptr,
+                            cat.getDigimon() ? cat.getDigimon()->profileSize : 0);
+    }else if (menuSelection == 1) {   // Training (new)
+      currentState = STATE_TRAINING_MENU;
+      menuSelection = 0;
+      display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+    } else if (menuSelection == 2) {
       currentState = STATE_DIGIVOLUTION_PAGE;
-      display.drawDigivolutionPage();
-    } else if (menuSelection == 2) {   // Back
+      {
+        const DigimonSprites* cur = cat.getDigimon();
+        int idx = 0;
+        for (int i = 0; i < DIGIMON_COUNT; i++) {
+          if (DIGIMON_ALL[i] == cur) { idx = i; break; }
+        }
+        const DigimonSprites* nxt = DIGIMON_ALL[(idx + 1) % DIGIMON_COUNT];
+        display.drawDigivolutionPage(cur ? cur->name : "?", nxt ? nxt->name : "?");
+      }
+    } else if (menuSelection == 3) {   // Back
       currentState = STATE_MENU;
       menuSelection = 0;
       display.drawMenu("Menu", topMenuItems, NUM_MENU_ITEMS, menuSelection);
@@ -275,12 +330,55 @@ else if (currentState == STATE_STATS_PAGE) {
   }
 }
 
+else if (currentState == STATE_TRAINING_MENU) {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = NUM_TRAINING_ITEMS - 1;
+    display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= NUM_TRAINING_ITEMS) menuSelection = 0;
+    display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+  }
+  if (input.isOkPressed()) {
+    sound.playClick();
+    if (menuSelection == 0) {          // Train HP
+      pet.trainHp();
+      sound.playHappyTone();
+      display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+    } else if (menuSelection == 1) {   // Train AP
+      pet.trainAp();
+      sound.playHappyTone();
+      display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+    } else if (menuSelection == 2) {   // Train DP
+      pet.trainDp();
+      sound.playHappyTone();
+      display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
+    } else if (menuSelection == 3) {   // Back
+      currentState = STATE_DIGIMON_MENU;
+      menuSelection = 0;
+      display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+    }
+  }
+}
+
 else if (currentState == STATE_DIGIVOLUTION_PAGE) {
   if (input.isOkPressed()) {
     sound.playClick();
-    currentState = STATE_DIGIMON_MENU;
-    menuSelection = 0;
-    display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
+    // Digivolve: advance to the next registered Digimon (wraps around).
+    const DigimonSprites* cur = cat.getDigimon();
+    int idx = 0;
+    for (int i = 0; i < DIGIMON_COUNT; i++) {
+      if (DIGIMON_ALL[i] == cur) { idx = i; break; }
+    }
+    int next = (idx + 1) % DIGIMON_COUNT;
+    cat.setDigimon(DIGIMON_ALL[next]);
+    cat.setAction(WALKING);
+    sound.playHappyTone();
+    returnToMain();   // show the new Digimon immediately (single-blit redraw)
   }
 }
 
@@ -316,7 +414,7 @@ else if (currentState == STATE_DIGIVOLUTION_PAGE) {
     }
 
     if (oldCatX != cat.getX()) {
-      display.clearTrail(oldCatX, cat.getX(), cat.getY(), 48, 48);
+      display.clearTrail(oldCatX, cat.getX(), cat.getY(), cat.getWidth(), cat.getHeight());
     }
 
     mgOldTreatX = mgTreatX;
@@ -344,7 +442,7 @@ else if (currentState == STATE_DIGIVOLUTION_PAGE) {
   }
 
   else if (currentState == STATE_DEAD) {
-    cat.update(display);
+    // cat.update(display);
 
     if (input.isLeftPressed() || input.isRightPressed()) {
       sound.playClick();
@@ -362,5 +460,6 @@ else if (currentState == STATE_DIGIVOLUTION_PAGE) {
       }
     }
   }
+}
   delay(10);
 }

@@ -20,54 +20,41 @@ CharacterManager::CharacterManager() {
 }
 
 void CharacterManager::begin() {
+  // Default starter Digimon. Digivolution later calls setDigimon().
+  if (!digimon) setDigimon(&DIGIMON_terriermon);
 }
 
 void CharacterManager::update(DisplayManager& display) {
   uint32_t currentTime = millis();
 
-  if (currentTime - lastFrameTime > 150) {
+  if (currentTime - lastFrameTime > 150 && digimon) {
     lastFrameTime = currentTime;
+
+    // Advance the animation within the CURRENT action's frame count (actions
+    // no longer assume exactly 4 frames -- each Digimon action can differ).
+    int count = 1;
+    const uint16_t* const* frames = actionFrames(count);
+    if (count < 1) count = 1;
     currentFrame++;
-    if (currentFrame > 3) currentFrame = 0;
+    if (currentFrame >= count) currentFrame = 0;
 
-    if (currentAction == SLEEPING) {
-      if (facingRight) {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, sleep_frames[currentFrame]);
+    // WALKING is drawn in the movement block below; here we handle the
+    // stationary/animated actions. (MINIGAME uses walk frames, drawn here.)
+    if (currentAction != WALKING) {
+      const uint16_t* frame = frames[currentFrame];
+      // Flip convention: WALKING flips when facingRight; every other action
+      // flips when !facingRight (matches the original per-action logic).
+      bool flip = (!facingRight);
+      if (flip) {
+        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, frame);
       } else {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, sleep_frames[currentFrame]);
-      }
-    } else if (currentAction == DEAD) {
-      display.drawSprite(x, y, spriteWidth, spriteHeight, dead_frame);
-    } else if (currentAction == SAD) {
-      if (facingRight) {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, sad_frames[currentFrame]);
-      } else {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, sad_frames[currentFrame]);
-      }
-    } else if (currentAction == MINIGAME) {
-      if (facingRight) {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, walk_frames[currentFrame]);
-      } else {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, walk_frames[currentFrame]);
-      }
-    } else if (currentAction == EATING) {
-      if (facingRight) {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, eat_frames[currentFrame]);
-      } else {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, eat_frames[currentFrame]);
+        display.drawSprite(x, y, spriteWidth, spriteHeight, frame);
       }
 
-      if (currentTime - actionStartTime > 3000) {
-        setAction(WALKING);
-      }
-    } else if (currentAction == PLAYING) {
-      if (facingRight) {
-        display.drawSprite(x, y, spriteWidth, spriteHeight, play_frames[currentFrame]);
-      } else {
-        display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, play_frames[currentFrame]);
-      }
-
-      if (currentTime - actionStartTime > 3000) {
+      // EATING / PLAYING auto-return to walking after 3s.
+      if ((currentAction == EATING || currentAction == PLAYING ||
+           currentAction == HAPPY) &&
+          currentTime - actionStartTime > 3000) {
         setAction(WALKING);
       }
     }
@@ -76,7 +63,11 @@ void CharacterManager::update(DisplayManager& display) {
   if (currentTime - lastMoveTime > 30) {
     lastMoveTime = currentTime;
 
-    if (currentAction == WALKING) {
+    if (currentAction == WALKING && digimon) {
+      // Remember where the sprite currently sits so we can erase its whole
+      // bounding box after it moves (clears BOTH x and y trails, any size).
+      int prevX = x;
+      int prevY = y;
       if (currentTime >= nextWanderTime) {
         if (random(0, 5) == 0) {
           // occasionally pause, like sniffing around
@@ -115,7 +106,20 @@ void CharacterManager::update(DisplayManager& display) {
         if (dy >= 0) dy = -1;
       }
       
-      const uint16_t* activeWalkFrame = (dy < 0) ? walk_back_frames[currentFrame] : walk_frames[currentFrame];
+      // Choose walk vs walk-back table from the active Digimon, clamped to
+      // each table's own frame count.
+      const uint16_t* const* tbl = (dy < 0) ? digimon->walkBack : digimon->walk;
+      int cnt = (dy < 0) ? digimon->walkBackCount : digimon->walkCount;
+      if (cnt < 1) cnt = 1;
+      int wf = currentFrame % cnt;
+      const uint16_t* activeWalkFrame = tbl[wf];
+
+      // Erase ONLY the strip the sprite vacated (old box minus new box), then
+      // draw the new frame. Clearing just the margin -- not the whole old box --
+      // means the pixels under the pet are never blanked, so it doesn't blink.
+      if (prevX != x || prevY != y) {
+        display.clearSpriteMargin(prevX, prevY, x, y, spriteWidth, spriteHeight);
+      }
 
       if (facingRight) {
         display.drawSpriteFlipped(x, y, spriteWidth, spriteHeight, activeWalkFrame);
@@ -132,4 +136,42 @@ void CharacterManager::setAction(PetAction newAction) {
     actionStartTime = millis();
     currentFrame = 0;
   }
+}
+
+
+// Frame table + count for the current action of the ACTIVE Digimon.
+const uint16_t* const* CharacterManager::actionFrames(int& countOut) const {
+  countOut = 1;
+  if (!digimon) return nullptr;
+  switch (currentAction) {
+    case SLEEPING: countOut = digimon->sleepCount;   return digimon->sleep;
+    case DEAD:     countOut = digimon->deadCount;    return digimon->dead;
+    case SAD:      countOut = digimon->sadCount;     return digimon->sad;
+    case EATING:   countOut = digimon->eatCount;     return digimon->eat;
+    case HAPPY:    countOut = digimon->happyCount;   return digimon->happy;
+    case PLAYING:  countOut = digimon->playCount;    return digimon->play;
+    case MINIGAME: countOut = digimon->walkCount;    return digimon->walk;
+    case WALKING:
+    default:       countOut = digimon->walkCount;    return digimon->walk;
+  }
+}
+
+const uint16_t* CharacterManager::getCurrentFrame() const {
+  int count = 1;
+  const uint16_t* const* frames = actionFrames(count);
+  if (!frames || count < 1) return nullptr;
+  int f = currentFrame;
+  if (f < 0) f = 0;
+  if (f >= count) f = f % count;
+  return frames[f];
+}
+
+void CharacterManager::setDigimon(const DigimonSprites* d) {
+  digimon = d;
+  if (d) {
+    // Draw at the stored art size, 1:1 (no runtime scaling).
+    spriteWidth = d->spriteSize;
+    spriteHeight = d->spriteSize;
+  }
+  currentFrame = 0;
 }

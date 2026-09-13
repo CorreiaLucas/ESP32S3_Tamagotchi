@@ -13,6 +13,10 @@ void PetState::begin() {
   poopCount = preferences.getInt("poops", 0);
   starveTicks = preferences.getInt("starving", 0);
   age = preferences.getInt("age", 0);
+  hp = preferences.getInt("hp", 100);
+  maxHp = preferences.getInt("maxHp", 100);
+  ap = preferences.getInt("ap", 10);
+  dp = preferences.getInt("dp", 10);
 
   uptimeMinutes = preferences.getInt("uptime", 0);
 
@@ -120,6 +124,10 @@ void PetState::saveState() {
   preferences.putInt("starving", starveTicks);
   preferences.putInt("age", age);
   preferences.putInt("uptime", uptimeMinutes);
+  preferences.putInt("hp", hp);
+  preferences.putInt("maxHp", maxHp);
+  preferences.putInt("ap", ap);
+  preferences.putInt("dp", dp);
 }
 
 void PetState::reset() {
@@ -132,6 +140,10 @@ void PetState::reset() {
   starveTicks = 0;
   age = 0;
   uptimeMinutes = 0;
+  hp = 100;
+  maxHp = 100;
+  ap = 10;
+  dp = 10;
   saveState();
 }
 
@@ -147,3 +159,22 @@ void PetState::addDay() {
   age++;
   saveState();
 }
+
+void PetState::trainHp() {
+  int gain = random(50, 101);   
+  maxHp += gain;
+  hp = maxHp;                   
+  saveState();
+}
+
+void PetState::trainAp() {
+  int gain = random(5, 11);     
+  ap += gain;
+  saveState();
+}
+
+void PetState::trainDp() {
+  int gain = random(5, 11);     
+  dp += gain;
+  saveState();
+} 

@@ -61,3 +61,80 @@ Run it from the project root. Two different modes:
  python tools\png_to_rgb565.py background Assets\Backgrounds\Data_forest.png --name background_data_forest --size 128
  - Write straight into Sprites.cpp with --out + --append:
  python tools\png_to_rgb565.py sprite Assets\...\eat1.png --name eat_0 --size 48 --out src\Sprites.cpp --append
+
+# Digimon sprite generator (whole folder → <name>Sprites.cpp/.h)
+
+`tools\build_digimon_sprites.py` automates converting an ENTIRE Digimon folder
+to RGB565 in one command (wraps `png_to_rgb565.py`). It groups animation frames,
+prefixes every symbol with the Digimon name (so multiple Digimon coexist for
+**digivolution**), and emits `src\<name>Sprites.cpp` + `.h`.
+
+## What it does
+- Scans `Assets\Digimons\<name>\` for PNGs.
+- Strips the Digimon-name prefix and splits each file into an ACTION base
+  (walk, walkback, happy, attack, sleep, profile, ...) + optional frame number.
+  Handles both naming styles: `terriermon_walk1.png` and `walk_1.png`.
+- Groups same-base frames into a 0-based animation table, e.g.:
+  `const uint16_t* const terriermon_walk_frames[3] = { terriermon_walk_0, terriermon_walk_1, terriermon_walk_2 };`
+- Single unnumbered images (sleep, profile) become a lone symbol.
+- Emits `#define <NAME>_SPRITE_SIZE` / `_PROFILE_SIZE` so the firmware knows the
+  stored size.
+- Skips non-sprite files (source sheets like `gargomon.png`) and lists them.
+
+## Current sizing convention (native 1:1 — no upscaling)
+Sprites are stored at each Digimon's NATIVE art size and drawn 1:1 (no runtime
+scaling), which keeps pixels crisp/even. Apparent size differences between
+Digimon are intended to be conveyed later via **background zoom** (using
+`realHeightCm` in `DigimonRegistry`), NOT by scaling the sprites.
+
+Current sizes: terriermon 41px, gargomon 50px (profile 30px), pad 0.12.
+
+## Usage
+```
+# Native 1:1 (current convention). --size = the box that fits the largest
+# normal-pose frame + ~25% padding headroom.
+python tools\build_digimon_sprites.py terriermon --size 41 --profile-size 30 --scale 1
+python tools\build_digimon_sprites.py gargomon   --size 50 --profile-size 30 --scale 1
+```
+
+Flags:
+- `--size N`       : force the square canvas size (omit to auto-derive from art).
+- `--profile-size N`: profile sprite square size (default 30).
+- `--pad F`        : transparent safety margin per side (default 0.12 ≈ 12%),
+                     prevents ears/feet from clipping the canvas edge.
+- `--scale N`      : integer scale cap. `1` = TRUE native 1:1 — frames are
+                     centered at their own pixel size with transparent padding,
+                     NEVER fractionally upscaled (this is what keeps pixels even).
+                     `2` = crisp 2x. `0` = fit-scale to fill (fractional — causes
+                     uneven pixels for frames smaller than the box; avoid).
+                     ⚠️ Use `--scale 1` for native art, NOT `--scale 0`.
+- `--min-size / --max-size`: clamps for the auto-derived size.
+
+## Adding a new Digimon
+1. Drop its PNGs in `Assets\Digimons\<name>\` (name frames like `walk1.png`).
+2. Run the generator with a `--size` that fits its largest normal pose (+~25%).
+3. Add it to `DigimonRegistry.cpp/.h`: `#include "<name>Sprites.h"`, a
+   `DIGIMON_<name>` entry (map its action tables, set `realHeightCm`), and add it
+   to `DIGIMON_ALL[]`.
+
+## Note — Wokwi ST7789 color/byte-order
+Sprites are composited by reading RGB565 straight from PROGMEM into a plain RAM
+buffer, then pushed with `drawRGBBitmap`. Do NOT round-trip sprite pixels through
+`GFXcanvas16` (its `getBuffer()` byte order differs on the Wokwi ST7789 stand-in
+and renders colors purple/pink). The direct-PROGMEM background is the color
+reference.
+
+## TODO
+[ ]  Training
+  [ ] Minigame or just waiting  
+  [ ]
+  [ ]
+[ ]  Combats
+  [ ] Combat sprites
+  [ ] Enemies
+[ ]  Eggs / more digimons
+[ ]  Real digivolution system 
+  [ ]  Attaching base stat for each digimon
+[ ] Correct time gestion
+
+

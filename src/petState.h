@@ -38,7 +38,9 @@ public:
   void saveState();
   void reset();
   void addDay();
-
+  void trainHp();
+  void trainAp();
+  void trainDp();
   char* getName() {
     return name;
   }

@@ -3,45 +3,17 @@
 
 #include <Arduino.h>
 
-extern const uint16_t walk_0[] PROGMEM;
-extern const uint16_t walk_1[] PROGMEM;
-extern const uint16_t walk_2[] PROGMEM;
-extern const uint16_t walk_3[] PROGMEM;
+// --------------------------------------------------------------------------
+// Shared, digimon-INDEPENDENT assets only.
+// Per-digimon pet sprites (walk/sleep/eat/play/sad/dead/happy/attack/profile)
+// now live in generated <name>Sprites.cpp/.h and are wired through
+// DigimonRegistry. Regenerate them with tools/build_digimon_sprites.py.
+// --------------------------------------------------------------------------
 
-extern const uint16_t sleep_0[] PROGMEM;
-extern const uint16_t sleep_1[] PROGMEM;
-extern const uint16_t sleep_2[] PROGMEM;
-extern const uint16_t sleep_3[] PROGMEM;
-
-extern const uint16_t eat_0[] PROGMEM;
-extern const uint16_t eat_1[] PROGMEM;
-extern const uint16_t eat_2[] PROGMEM;
-extern const uint16_t eat_3[] PROGMEM;
-
-extern const uint16_t play_0[] PROGMEM;
-extern const uint16_t play_1[] PROGMEM;
-extern const uint16_t play_2[] PROGMEM;
-extern const uint16_t play_3[] PROGMEM;
-
-extern const uint16_t sad_0[] PROGMEM;
-extern const uint16_t sad_1[] PROGMEM;
-extern const uint16_t sad_2[] PROGMEM;
-extern const uint16_t sad_3[] PROGMEM;
-
-extern const uint16_t dead_frame[] PROGMEM;
-extern const uint16_t poop_frame[] PROGMEM;
-extern const uint16_t treat_frame[] PROGMEM;
-extern const uint16_t profile[] PROGMEM;
+extern const uint16_t treat_frame[] PROGMEM;   // 16x16 minigame treat
+extern const uint16_t poop_frame[] PROGMEM;    // 20x20 poop
 
 // Full-screen 128x128 background (RGB565)
 extern const uint16_t background_data_forest[] PROGMEM;
-
-extern const uint16_t* const walk_frames[4];
-extern const uint16_t* const walk_back_frames[4];
-extern const uint16_t* const sleep_frames[4];
-extern const uint16_t* const eat_frames[4];
-extern const uint16_t* const play_frames[4];
-extern const uint16_t* const sad_frames[4];
-extern const uint16_t* const profileSprites[1];
 
 #endif

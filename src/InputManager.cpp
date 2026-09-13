@@ -9,6 +9,12 @@ void InputManager::begin() {
   pinMode(BTN_RIGHT, INPUT_PULLUP);
 }
 
+bool InputManager::isAnyPressed() {
+  return digitalRead(BTN_LEFT) == LOW ||
+         digitalRead(BTN_OK) == LOW ||
+         digitalRead(BTN_RIGHT) == LOW;
+}
+
 bool InputManager::readButton(uint8_t pin) {
   if (digitalRead(pin) == LOW) {
     if ((millis() - lastDebounceTime) > debounceDelay) {
