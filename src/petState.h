@@ -41,6 +41,9 @@ public:
   void trainHp();
   void trainAp();
   void trainDp();
+  // On digivolution: raise stats to at least the new form's base
+  // (max of current vs base -- never lose trained progress).
+  void applyEvolutionStats(int baseMaxHp, int baseAp, int baseDp);
   char* getName() {
     return name;
   }

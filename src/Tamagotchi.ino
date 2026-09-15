@@ -71,6 +71,15 @@ void returnToMain() {
   lastCatX = cat.getX();
 }
 
+// Draw the Digivolution page for the active Digimon using the pet's live stats.
+// menuSelection selects among the current Digimon's possible evolutions.
+void drawDigivolvePage() {
+  const DigimonSprites* cur = cat.getDigimon();
+  display.drawDigivolutionPage(cur, menuSelection,
+                               pet.getMaxHp(), pet.getAp(), pet.getDp(),
+                               pet.getAge(), pet.getHappiness(), pet.getHunger());
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Starting display init...");
@@ -304,15 +313,8 @@ else if (currentState == STATE_DIGIMON_MENU) {
       display.drawMenu("Training", trainingMenuItems, NUM_TRAINING_ITEMS, menuSelection);
     } else if (menuSelection == 2) {
       currentState = STATE_DIGIVOLUTION_PAGE;
-      {
-        const DigimonSprites* cur = cat.getDigimon();
-        int idx = 0;
-        for (int i = 0; i < DIGIMON_COUNT; i++) {
-          if (DIGIMON_ALL[i] == cur) { idx = i; break; }
-        }
-        const DigimonSprites* nxt = DIGIMON_ALL[(idx + 1) % DIGIMON_COUNT];
-        display.drawDigivolutionPage(cur ? cur->name : "?", nxt ? nxt->name : "?");
-      }
+      menuSelection = 0;                 // select first possible evolution
+      drawDigivolvePage();
     } else if (menuSelection == 3) {   // Back
       currentState = STATE_MENU;
       menuSelection = 0;
@@ -366,19 +368,52 @@ else if (currentState == STATE_TRAINING_MENU) {
 }
 
 else if (currentState == STATE_DIGIVOLUTION_PAGE) {
-  if (input.isOkPressed()) {
-    sound.playClick();
-    // Digivolve: advance to the next registered Digimon (wraps around).
-    const DigimonSprites* cur = cat.getDigimon();
-    int idx = 0;
-    for (int i = 0; i < DIGIMON_COUNT; i++) {
-      if (DIGIMON_ALL[i] == cur) { idx = i; break; }
+  const DigimonSprites* cur = cat.getDigimon();
+  int n = (cur && cur->evolutions) ? cur->evolutionCount : 0;
+
+  // No evolutions (final form): OK just returns to the Digimon menu.
+  if (n == 0) {
+    if (input.isOkPressed()) {
+      sound.playClick();
+      currentState = STATE_DIGIMON_MENU;
+      menuSelection = 0;
+      display.drawMenu("Digimon", digimonMenuItems, NUM_DIGIMON_ITEMS, menuSelection);
     }
-    int next = (idx + 1) % DIGIMON_COUNT;
-    cat.setDigimon(DIGIMON_ALL[next]);
-    cat.setAction(WALKING);
-    sound.playHappyTone();
-    returnToMain();   // show the new Digimon immediately (single-blit redraw)
+    delay(10);
+    return;
+  }
+
+  // Navigate the list of possible evolutions.
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menuSelection--;
+    if (menuSelection < 0) menuSelection = n - 1;
+    drawDigivolvePage();
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menuSelection++;
+    if (menuSelection >= n) menuSelection = 0;
+    drawDigivolvePage();
+  }
+
+  if (input.isOkPressed()) {
+    const EvolutionReq& req = cur->evolutions[menuSelection];
+    bool ok = evolutionRequirementsMet(req,
+                pet.getMaxHp(), pet.getAp(), pet.getDp(),
+                pet.getAge(), pet.getHappiness(), pet.getHunger());
+    if (ok && req.target) {
+      sound.playHappyTone();
+      // Carry stats: raise to at least the new form's base (max of current vs base).
+      pet.applyEvolutionStats(req.target->baseMaxHp, req.target->baseAp, req.target->baseDp);
+      cat.setDigimon(req.target);
+      cat.setAction(WALKING);
+      returnToMain();               // show the new Digimon immediately
+    } else {
+      // Requirements not met: reject with a click, stay on the page.
+      sound.playClick();
+      drawDigivolvePage();
+    }
   }
 }
 

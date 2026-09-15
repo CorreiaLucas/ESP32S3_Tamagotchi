@@ -177,4 +177,14 @@ void PetState::trainDp() {
   int gain = random(5, 11);     
   dp += gain;
   saveState();
-} 
+}
+
+
+void PetState::applyEvolutionStats(int baseMaxHp, int baseAp, int baseDp) {
+  if (baseMaxHp > maxHp) maxHp = baseMaxHp;
+  if (baseAp    > ap)    ap    = baseAp;
+  if (baseDp    > dp)    dp    = baseDp;
+  if (hp > maxHp) hp = maxHp;
+  if (hp < maxHp) hp = maxHp;   // heal to full on evolve
+  saveState();
+}

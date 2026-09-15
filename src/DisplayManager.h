@@ -13,6 +13,7 @@
 
 #include <Adafruit_GFX.h>
 #include <SPI.h>
+#include "DigimonRegistry.h"
 
 #define SCREEN_WIDTH  128
 #define SCREEN_HEIGHT 128
@@ -165,7 +166,9 @@ public:
   void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
   void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp,
                      const uint16_t* profileFrame, int profileSize);
-  void drawDigivolutionPage(const char* currentName, const char* nextName);
+  void drawDigivolutionPage(const struct DigimonSprites* current, int selectedIndex,
+                            int maxHp, int ap, int dp, int ageDays,
+                            int happiness, int hunger);
   void drawGameOver(int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
 

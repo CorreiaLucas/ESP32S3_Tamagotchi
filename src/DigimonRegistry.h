@@ -14,6 +14,23 @@
 //  firmware can always call any action without a null check.
 // ==========================================================================
 
+struct DigimonSprites;   // forward declaration for EvolutionReq
+
+// --------------------------------------------------------------------------
+// One possible evolution FROM a Digimon INTO `target`, gated by requirements.
+// A requirement of 0 means "no requirement" for that field. The player can
+// only digivolve into a target once ALL of its requirements are met.
+// --------------------------------------------------------------------------
+struct EvolutionReq {
+  const DigimonSprites* target;   // Digimon this evolves into
+  int minMaxHp;                   // require pet maxHp   >= this (0 = ignore)
+  int minAp;                      // require pet ap      >= this (0 = ignore)
+  int minDp;                      // require pet dp      >= this (0 = ignore)
+  int minAgeDays;                 // require pet age     >= this (0 = ignore)
+  int minHappiness;               // require happiness   >= this (0 = ignore)
+  int minHunger;                  // require hunger      >= this (0 = ignore)
+};
+
 struct DigimonSprites {
   const char* name;
   int spriteSize;      // size (px) the ACTION art is STORED at (canvas resolution)
@@ -21,6 +38,17 @@ struct DigimonSprites {
   int realHeightCm;    // lore height (cm). Kept for future use (e.g. background
                        // zoom for very tall Digimon). Does NOT affect sprite
                        // size -- sprites draw 1:1 at their stored spriteSize.
+
+  // Base stats for THIS Digimon. On evolve, the pet keeps the MAX of its
+  // current stat vs the new Digimon's base (never lose trained progress, but a
+  // stronger base lifts weak stats). Also used to seed a fresh pet.
+  int baseMaxHp;
+  int baseAp;
+  int baseDp;
+
+  // Possible evolutions FROM this Digimon (may be null / count 0 for a final form).
+  const EvolutionReq* evolutions;
+  int evolutionCount;
 
   // Each action: pointer to a frame table + how many frames it has.
   const uint16_t* const* walk;      int walkCount;
@@ -46,5 +74,10 @@ extern const int DIGIMON_COUNT;
 
 // Return the registered Digimon with this name, or nullptr if unknown.
 const DigimonSprites* digimonByName(const char* name);
+
+// Evaluate whether the pet currently meets an evolution's requirements.
+bool evolutionRequirementsMet(const EvolutionReq& req,
+                              int maxHp, int ap, int dp,
+                              int ageDays, int happiness, int hunger);
 
 #endif

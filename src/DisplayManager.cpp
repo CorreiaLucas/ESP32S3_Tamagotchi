@@ -1,6 +1,7 @@
 #include "DisplayManager.h"
 #include "Sprites.h"
 #include <string.h>
+#include <stdio.h>
 
 DisplayManager::DisplayManager()
 #ifdef SIMULATOR_BUILD
@@ -562,7 +563,9 @@ void DisplayManager::drawStatsPage(const char* name, int hp, int maxHp, int ap, 
   pushFrame();
 }
 
-void DisplayManager::drawDigivolutionPage(const char* currentName, const char* nextName) {
+void DisplayManager::drawDigivolutionPage(const DigimonSprites* current, int selectedIndex,
+                                          int maxHp, int ap, int dp, int ageDays,
+                                          int happiness, int hunger) {
   seedBufferBackground();
   gfx = &frameBuffer;
 
@@ -573,20 +576,67 @@ void DisplayManager::drawDigivolutionPage(const char* currentName, const char* n
 
   frameBuffer.setTextColor(MENU_TEXT_DARK);
   frameBuffer.setCursor(pnlX + 6, pnlY + 5);
-  frameBuffer.print("Digivolution");
+  frameBuffer.print("Digivolve");
   frameBuffer.drawFastHLine(pnlX + 4, pnlY + 15, pnlW - 8, STAT_FRAME_COLOR);
 
+  int n = (current && current->evolutions) ? current->evolutionCount : 0;
+
+  if (n == 0) {
+    frameBuffer.setTextColor(MENU_TEXT_DARK);
+    frameBuffer.setCursor(pnlX + 8, pnlY + 46);
+    frameBuffer.print("Final form!");
+    frameBuffer.setCursor(pnlX + 8, pnlY + 60);
+    frameBuffer.print("No evolutions.");
+    frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 14);
+    frameBuffer.print("OK: Back");
+    gfx = nullptr; pushFrame();
+    return;
+  }
+
+  // One row per possible evolution: name + eligibility. Eligible rows are the
+  // lighter selectable plate ('>' + name); locked rows show the first unmet
+  // requirement so the player knows what to train / improve.
+  const int itemX = pnlX + 4;
+  const int itemW = pnlW - 8;
+  const int rowH  = 26;
+  const int y0    = pnlY + 20;
+
+  for (int i = 0; i < n; i++) {
+    const EvolutionReq& req = current->evolutions[i];
+    bool ok = evolutionRequirementsMet(req, maxHp, ap, dp, ageDays, happiness, hunger);
+    int ry = y0 + i * (rowH + 2);
+
+    // Plate: selected + eligible -> raised light plate; otherwise plain.
+    bool sel = (i == selectedIndex);
+    uint16_t body  = (sel ? MENU_PLATE_LGREY : STAT_PLATE_GREY);
+    frameBuffer.fillRect(itemX, ry, itemW, rowH, body);
+    frameBuffer.drawRect(itemX, ry, itemW, rowH, STAT_FRAME_COLOR);
+
+    frameBuffer.setTextColor(MENU_TEXT_DARK);
+    frameBuffer.setCursor(itemX + 4, ry + 3);
+    frameBuffer.printf("%s%s", sel ? "> " : "  ",
+                       req.target ? req.target->name : "?");
+
+    // Second line: status.
+    frameBuffer.setCursor(itemX + 4, ry + 14);
+    if (ok) {
+      frameBuffer.print("  READY - OK");
+    } else {
+      // Show the first unmet requirement, compactly.
+      char msg[24] = "  need ";
+      if      (req.minMaxHp    > 0 && maxHp     < req.minMaxHp)    snprintf(msg,sizeof(msg),"  HP>=%d", req.minMaxHp);
+      else if (req.minAp       > 0 && ap        < req.minAp)       snprintf(msg,sizeof(msg),"  AP>=%d", req.minAp);
+      else if (req.minDp       > 0 && dp        < req.minDp)       snprintf(msg,sizeof(msg),"  DP>=%d", req.minDp);
+      else if (req.minAgeDays  > 0 && ageDays   < req.minAgeDays)  snprintf(msg,sizeof(msg),"  Age>=%d", req.minAgeDays);
+      else if (req.minHappiness> 0 && happiness < req.minHappiness)snprintf(msg,sizeof(msg),"  Joy>=%d", req.minHappiness);
+      else if (req.minHunger   > 0 && hunger    < req.minHunger)   snprintf(msg,sizeof(msg),"  Fed>=%d", req.minHunger);
+      frameBuffer.print(msg);
+    }
+  }
+
   frameBuffer.setTextColor(MENU_TEXT_DARK);
-  frameBuffer.setCursor(pnlX + 8, pnlY + 30);
-  frameBuffer.printf("Now: %s", currentName ? currentName : "?");
-  frameBuffer.setCursor(pnlX + 8, pnlY + 50);
-  frameBuffer.printf("Next: %s", nextName ? nextName : "?");
-
-  frameBuffer.setCursor(pnlX + 8, pnlY + 76);
-  frameBuffer.print("OK: Digivolve!");
-
-  frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 14);
-  frameBuffer.print("(OK also exits)");
+  frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 12);
+  frameBuffer.print("OK pick  L/R move");
 
   gfx = nullptr;
   pushFrame();

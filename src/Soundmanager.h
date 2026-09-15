@@ -6,7 +6,7 @@
 
 class SoundManager {
 private:
-  bool isMuted = false;
+  bool isMuted = true;
 public:
   void begin();
   void playClick();
