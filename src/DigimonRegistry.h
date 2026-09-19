@@ -67,6 +67,13 @@ struct DigimonSprites {
 // Registered Digimon (add one extern per generated <name>Sprites set).
 extern const DigimonSprites DIGIMON_terriermon;
 extern const DigimonSprites DIGIMON_gargomon;
+extern const DigimonSprites DIGIMON_chibomon;
+extern const DigimonSprites DIGIMON_dorimon;
+extern const DigimonSprites DIGIMON_tsunomon;
+extern const DigimonSprites DIGIMON_koromon;
+extern const DigimonSprites DIGIMON_kapurimon;
+extern const DigimonSprites DIGIMON_kuramon;
+extern const DigimonSprites DIGIMON_pagumon;
 
 // Ordered list for iteration / digivolution chains, plus a name lookup.
 extern const DigimonSprites* const DIGIMON_ALL[];

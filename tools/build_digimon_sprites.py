@@ -196,7 +196,8 @@ def derive_size(actions: dict, min_size: int, max_size: int) -> int:
 def build(digimon: str, assets_dir: str, out_dir: str,
           size: int | None, profile_size: int,
           min_size: int, max_size: int, pad: float,
-          integer_scale: int = 0) -> None:
+          integer_scale: int = 0, register: bool = True,
+          stats=(0, 0, 0)) -> None:
     folder = os.path.join(assets_dir, digimon)
     if not os.path.isdir(folder):
         sys.exit(f"Folder not found: {folder}")
@@ -219,6 +220,7 @@ def build(digimon: str, assets_dir: str, out_dir: str,
     h_tables: list[str] = []
     summary: list[str] = []
     has_profile = "profile" in actions
+    count_by_base: dict[str, int] = {}   # base -> number of frames (for registry)
 
     for base in sorted(actions):
         entries = actions[base]
@@ -240,6 +242,8 @@ def build(digimon: str, assets_dir: str, out_dir: str,
             cpp_blocks.append(comment + "\n" + format_array(sym, vals, per_row=this_size))
             h_externs.append(f"extern const uint16_t {sym}[] PROGMEM;")
             symbols.append(sym)
+
+        count_by_base[base] = len(symbols)
 
         if len(symbols) > 1:
             table = f"{prefix}_{base}_frames"
@@ -293,6 +297,181 @@ def build(digimon: str, assets_dir: str, out_dir: str,
         for sk in skipped:
             print(f"       ~ {sk}")
 
+    if register:
+        # Exclude 'profile' from the animation count map (it's not an action table).
+        anim_counts = {b: c for b, c in count_by_base.items() if b != "profile"}
+        register_in_registry(digimon, out_dir, anim_counts, has_profile,
+                             stats[0], stats[1], stats[2])
+
+
+
+# ==========================================================================
+#  REGISTRY INTEGRATION
+#  Also register the generated Digimon in src/DigimonRegistry.cpp/.h so it is
+#  usable at runtime without hand-editing. Idempotent: re-running for the same
+#  Digimon REPLACES its block (matched by AUTO markers) rather than duplicating.
+#  Animation fallbacks mirror Terriermon exactly:
+#    walkBack->walk, sleep->walk, eat/play->happy->walk, sad->walk,
+#    dead->sleep->walk, happy->walk, attack->happy->walk, profile->nullptr.
+#  Base stats come from --stats (default 0 0 0). Evolutions default to none
+#  (nullptr, 0) -- wire evolution chains by hand afterwards.
+# ==========================================================================
+
+def _action_expr(prefix, actions_present, base, count_by_base):
+    """Return (table_symbol, count) for an action, applying Terriermon-style
+    fallbacks based on which actions this Digimon actually ships.
+    `actions_present` is the set of base names that produced a frame table."""
+    def tbl(b):
+        return f"{prefix}_{b}_frames", count_by_base[b]
+
+    # Preference chains per action (first present wins).
+    chains = {
+        "walk":     ["walk"],
+        "walkBack": ["walkback", "walk"],
+        "sleep":    ["sleep", "walk"],
+        "eat":      ["eat", "happy", "walk"],
+        "play":     ["play", "happy", "walk"],
+        "sad":      ["sad", "walk"],
+        "dead":     ["dead", "sleep", "walk"],
+        "happy":    ["happy", "walk"],
+        "attack":   ["attack", "happy", "walk"],
+    }
+    for cand in chains[base]:
+        if cand in actions_present:
+            return tbl(cand)
+    # Nothing available at all -> nullptr, 0 (shouldn't happen if walk exists).
+    return "nullptr", 0
+
+
+def register_in_registry(digimon, out_dir, count_by_base, has_profile,
+                         base_max_hp, base_ap, base_dp):
+    """Insert/replace this Digimon's block in DigimonRegistry.cpp/.h."""
+    prefix = sanitize(digimon)
+    UP = prefix.upper()
+    reg_cpp = os.path.join(out_dir, "DigimonRegistry.cpp")
+    reg_h = os.path.join(out_dir, "DigimonRegistry.h")
+    if not (os.path.isfile(reg_cpp) and os.path.isfile(reg_h)):
+        print(f"     [registry] {reg_cpp} / .h not found -- skipping registration.")
+        return
+
+    actions_present = set(count_by_base.keys())
+
+    # --- Frame-table symbols, wrapping single-frame actions in a 1-elem table ---
+    # Multi-frame actions already have `<prefix>_<base>_frames`. Single-frame
+    # actions (count 1, generated as a lone symbol `<prefix>_<base>`) need a
+    # wrapper table so the struct can point at it uniformly.
+    wrapper_lines = []
+    frame_table = {}   # base -> (symbol, count)
+    for base, cnt in count_by_base.items():
+        if cnt > 1:
+            frame_table[base] = (f"{prefix}_{base}_frames", cnt)
+        else:
+            wrap = f"{prefix}_{base}_frames"
+            wrapper_lines.append(
+                f"static const uint16_t* const {wrap}[1] = {{ {prefix}_{base} }};")
+            frame_table[base] = (wrap, 1)
+
+    def expr(action_field, base):
+        sym, cnt = _action_expr(prefix, actions_present, base, {b: frame_table[b][1] for b in frame_table})
+        if sym == "nullptr":
+            return "nullptr", 0
+        # map chosen base -> its (possibly wrapped) table symbol
+        chosen_base = None
+        chains = {
+            "walk": ["walk"], "walkBack": ["walkback", "walk"],
+            "sleep": ["sleep", "walk"], "eat": ["eat", "happy", "walk"],
+            "play": ["play", "happy", "walk"], "sad": ["sad", "walk"],
+            "dead": ["dead", "sleep", "walk"], "happy": ["happy", "walk"],
+            "attack": ["attack", "happy", "walk"],
+        }
+        for cand in chains[base]:
+            if cand in actions_present:
+                chosen_base = cand
+                break
+        tsym, tcnt = frame_table[chosen_base]
+        return tsym, tcnt
+
+    w   = expr("walk", "walk")
+    wb  = expr("walkBack", "walkBack")
+    sl  = expr("sleep", "sleep")
+    ea  = expr("eat", "eat")
+    pl  = expr("play", "play")
+    sa  = expr("sad", "sad")
+    de  = expr("dead", "dead")
+    ha  = expr("happy", "happy")
+    at  = expr("attack", "attack")
+    profile_expr = f"{prefix}_profile" if has_profile else "nullptr"
+
+    # --- Build the .cpp block (guarded by AUTO markers for idempotent replace) ---
+    begin = f"// >>> AUTO-REGISTER {prefix} BEGIN (build_digimon_sprites.py)"
+    end   = f"// <<< AUTO-REGISTER {prefix} END"
+    cpp_block = (
+        f"{begin}\n"
+        + ("\n".join(wrapper_lines) + "\n" if wrapper_lines else "")
+        + f"const DigimonSprites DIGIMON_{prefix} = {{\n"
+        f'  "{prefix}",\n'
+        f"  {UP}_SPRITE_SIZE,\n"
+        f"  {UP}_PROFILE_SIZE,\n"
+        f"  0,                                  // realHeightCm (set by hand if used)\n"
+        f"  {base_max_hp}, {base_ap}, {base_dp},                        // baseMaxHp, baseAp, baseDp\n"
+        f"  nullptr, 0,                         // evolutions, count (wire by hand)\n"
+        f"  {w[0]},      {w[1]},   // walk\n"
+        f"  {wb[0]},  {wb[1]},   // walkBack\n"
+        f"  {sl[0]},     {sl[1]},   // sleep\n"
+        f"  {ea[0]},     {ea[1]},   // eat\n"
+        f"  {pl[0]},     {pl[1]},   // play\n"
+        f"  {sa[0]},      {sa[1]},   // sad\n"
+        f"  {de[0]},     {de[1]},   // dead\n"
+        f"  {ha[0]},     {ha[1]},   // happy\n"
+        f"  {at[0]},    {at[1]},   // attack\n"
+        f"  {profile_expr}               // profile\n"
+        f"}};\n"
+        f"{end}"
+    )
+
+    # ---- Patch the .cpp ----
+    cpp = open(reg_cpp, encoding="utf-8").read()
+
+    # 1. ensure the sprite header is included
+    inc = f'#include "{prefix}Sprites.h"'
+    if inc not in cpp:
+        cpp = cpp.replace('#include "DigimonRegistry.h"\n',
+                          f'#include "DigimonRegistry.h"\n{inc}\n', 1)
+
+    # 2. replace existing AUTO block, or insert before DIGIMON_ALL
+    import re as _re
+    pat = _re.compile(_re.escape(begin) + r".*?" + _re.escape(end), _re.S)
+    if pat.search(cpp):
+        cpp = pat.sub(cpp_block, cpp)
+    else:
+        marker = "// --------------------------------------------------------------------------\nconst DigimonSprites* const DIGIMON_ALL[] = {"
+        assert marker in cpp, "DIGIMON_ALL marker not found in registry cpp"
+        cpp = cpp.replace(marker, cpp_block + "\n\n" + marker, 1)
+
+    # 3. add &DIGIMON_<prefix> to DIGIMON_ALL if missing
+    entry = f"  &DIGIMON_{prefix},"
+    if entry not in cpp:
+        cpp = cpp.replace("const DigimonSprites* const DIGIMON_ALL[] = {\n",
+                          f"const DigimonSprites* const DIGIMON_ALL[] = {{\n{entry}\n", 1)
+
+    open(reg_cpp, "w", encoding="utf-8", newline="").write(cpp)
+
+    # ---- Patch the .h: extern declaration ----
+    h = open(reg_h, encoding="utf-8").read()
+    ext = f"extern const DigimonSprites DIGIMON_{prefix};"
+    if ext not in h:
+        # add after the last existing "extern const DigimonSprites DIGIMON_..." line
+        lines = h.splitlines(keepends=True)
+        last = max(i for i, l in enumerate(lines)
+                   if l.startswith("extern const DigimonSprites DIGIMON_"))
+        lines.insert(last + 1, ext + "\n")
+        h = "".join(lines)
+        open(reg_h, "w", encoding="utf-8", newline="").write(h)
+
+    print(f"     [registry] registered DIGIMON_{prefix} "
+          f"(stats {base_max_hp}/{base_ap}/{base_dp}); added include + extern + DIGIMON_ALL entry.")
+
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(
@@ -313,6 +492,13 @@ def main() -> None:
     ap.add_argument("--scale", type=int, default=0,
                     help="integer upscale factor cap for EVEN pixels (e.g. 2 = "
                          "each source pixel -> 2x2 block). 0 = fit-scale (default)")
+    ap.add_argument("--stats", type=int, nargs=3, metavar=("MAXHP", "AP", "DP"),
+                    default=[0, 0, 0],
+                    help="base stats baseMaxHp baseAp baseDp for the registry "
+                         "entry (default: 0 0 0)")
+    ap.add_argument("--no-register", action="store_true",
+                    help="only generate <name>Sprites.cpp/.h; do NOT add the "
+                         "Digimon to DigimonRegistry.cpp/.h")
     ap.add_argument("--assets", default=os.path.join("Assets", "Digimons"),
                     help="assets root holding per-digimon folders")
     ap.add_argument("--out-dir", default="src",
@@ -320,7 +506,7 @@ def main() -> None:
     args = ap.parse_args()
     build(args.digimon, args.assets, args.out_dir,
           args.size, args.profile_size, args.min_size, args.max_size, args.pad,
-          args.scale)
+          args.scale, not args.no_register, tuple(args.stats))
 
 
 if __name__ == "__main__":

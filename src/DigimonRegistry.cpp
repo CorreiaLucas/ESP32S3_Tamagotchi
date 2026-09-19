@@ -1,4 +1,9 @@
 #include "DigimonRegistry.h"
+#include "pagumonSprites.h"
+#include "kuramonSprites.h"
+#include "kapurimonSprites.h"
+#include "koromonSprites.h"
+#include "tsunomonSprites.h"
 #include "terriermonSprites.h"
 #include "gargomonSprites.h"
 #include <string.h>
@@ -70,10 +75,122 @@ const DigimonSprites DIGIMON_gargomon = {
   gargomon_profile               // profile
 };
 
+// >>> AUTO-REGISTER tsunomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_tsunomon = {
+  "tsunomon",
+  TSUNOMON_SPRITE_SIZE,
+  TSUNOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  tsunomon_walk_frames,      3,   // walk
+  tsunomon_walkback_frames,  3,   // walkBack
+  tsunomon_walk_frames,     3,   // sleep
+  tsunomon_happy_frames,     3,   // eat
+  tsunomon_happy_frames,     3,   // play
+  tsunomon_walk_frames,      3,   // sad
+  tsunomon_walk_frames,     3,   // dead
+  tsunomon_happy_frames,     3,   // happy
+  tsunomon_attack_frames,    4,   // attack
+  tsunomon_profile               // profile
+};
+// <<< AUTO-REGISTER tsunomon END
+
+// >>> AUTO-REGISTER koromon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_koromon = {
+  "koromon",
+  KOROMON_SPRITE_SIZE,
+  KOROMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  koromon_walk_frames,      3,   // walk
+  koromon_walkback_frames,  3,   // walkBack
+  koromon_walk_frames,     3,   // sleep
+  koromon_happy_frames,     2,   // eat
+  koromon_happy_frames,     2,   // play
+  koromon_walk_frames,      3,   // sad
+  koromon_walk_frames,     3,   // dead
+  koromon_happy_frames,     2,   // happy
+  koromon_attack_frames,    5,   // attack
+  koromon_profile               // profile
+};
+// <<< AUTO-REGISTER koromon END
+
+// >>> AUTO-REGISTER kapurimon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_kapurimon = {
+  "kapurimon",
+  KAPURIMON_SPRITE_SIZE,
+  KAPURIMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  kapurimon_walk_frames,      3,   // walk
+  kapurimon_walkback_frames,  3,   // walkBack
+  kapurimon_walk_frames,     3,   // sleep
+  kapurimon_happy_frames,     3,   // eat
+  kapurimon_happy_frames,     3,   // play
+  kapurimon_walk_frames,      3,   // sad
+  kapurimon_walk_frames,     3,   // dead
+  kapurimon_happy_frames,     3,   // happy
+  kapurimon_attack_frames,    3,   // attack
+  kapurimon_profile               // profile
+};
+// <<< AUTO-REGISTER kapurimon END
+
+// >>> AUTO-REGISTER kuramon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_kuramon = {
+  "kuramon",
+  KURAMON_SPRITE_SIZE,
+  KURAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  kuramon_walk_frames,      3,   // walk
+  kuramon_walkback_frames,  3,   // walkBack
+  kuramon_walk_frames,     3,   // sleep
+  kuramon_happy_frames,     3,   // eat
+  kuramon_happy_frames,     3,   // play
+  kuramon_walk_frames,      3,   // sad
+  kuramon_walk_frames,     3,   // dead
+  kuramon_happy_frames,     3,   // happy
+  kuramon_attack_frames,    3,   // attack
+  kuramon_profile               // profile
+};
+// <<< AUTO-REGISTER kuramon END
+
+// >>> AUTO-REGISTER pagumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_pagumon = {
+  "pagumon",
+  PAGUMON_SPRITE_SIZE,
+  PAGUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  pagumon_walk_frames,      3,   // walk
+  pagumon_walkback_frames,  3,   // walkBack
+  pagumon_walk_frames,     3,   // sleep
+  pagumon_happy_frames,     3,   // eat
+  pagumon_happy_frames,     3,   // play
+  pagumon_walk_frames,      3,   // sad
+  pagumon_walk_frames,     3,   // dead
+  pagumon_happy_frames,     3,   // happy
+  pagumon_attack_frames,    5,   // attack
+  pagumon_profile               // profile
+};
+// <<< AUTO-REGISTER pagumon END
+
 // --------------------------------------------------------------------------
 const DigimonSprites* const DIGIMON_ALL[] = {
+  &DIGIMON_pagumon,
+  &DIGIMON_kuramon,
+  &DIGIMON_kapurimon,
+  &DIGIMON_koromon,
+  &DIGIMON_tsunomon,
   &DIGIMON_terriermon,
   &DIGIMON_gargomon,
+  &DIGIMON_chibomon,
+  &DIGIMON_dorimon,
 };
 const int DIGIMON_COUNT = sizeof(DIGIMON_ALL) / sizeof(DIGIMON_ALL[0]);
 
