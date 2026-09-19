@@ -124,6 +124,41 @@ buffer, then pushed with `drawRGBBitmap`. Do NOT round-trip sprite pixels throug
 and renders colors purple/pink). The direct-PROGMEM background is the color
 reference.
 
+# Game state machine + visualizer
+
+The game logic is a **table-driven finite state machine** in
+`src/GameStateMachine.{h,cpp}` (the `.ino` just calls `gsmSetup()`/`gsmLoop()`).
+Each state provides an `onEnter()` (paint the screen once) and an `onUpdate()`
+(per-frame logic that returns the next state). All states live in the static
+`kStates[]` table; menus share one reusable `MenuController`. To add a state:
+add it to the `GameState` enum, write its two handlers, and add a row to
+`kStates[]`.
+
+## Visualize the states as a graph
+
+`tools/fsm_graph.py` parses the FSM source and emits `tools/fsm.json`
+(states + transitions, with source line numbers). `tools/fsm_viewer.html` renders
+it as an interactive, Blueprint-style graph (pan/zoom, drag nodes, click a node
+or edge to highlight its connections and see the handler + trigger).
+
+```
+# 1. Extract the graph (re-run after editing GameStateMachine.cpp):
+python tools/fsm_graph.py
+
+# 2. Open the viewer (it auto-loads fsm.json sitting next to it). Because
+#    browsers block fetch() on file://, serve the tools folder:
+python -m http.server 8000 --directory tools
+#    then open http://localhost:8000/fsm_viewer.html
+#    (Or just open the HTML directly and use the “Load fsm.json” button.)
+```
+
+Notes / caveats:
+- This is a **read-only** visualizer (Tier 1). It never modifies your source.
+- Transition edges/topology are exact. Trigger *labels* are heuristic (derived
+  from the nearest `case`/comment/`if`), so a couple may show an incidental
+  guard (e.g. the Feed/Play actions show `pet.isSleeping()` instead of the case
+  comment) — the arrows themselves are correct.
+
 ## TODO
 [ ]  Training
   [ ] Minigame or just waiting  

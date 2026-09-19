@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tamagotchi FSM Viewer</title>
+<style>
+  :root {
+    --bg: #14161c;
+    --panel: #1c2029;
+    --panel2: #232834;
+    --line: #333b4a;
+    --text: #d7dce5;
+    --muted: #8a93a6;
+    --accent: #57b8ff;
+    --accent2: #ffd166;
+    --node: #2b3242;
+    --node-border: #46536b;
+    --node-main: #2e5d3a;
+    --node-dead: #5d2e2e;
+    --edge: #6b7688;
+    --edge-hi: #57b8ff;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif; overflow: hidden; }
+  #app { display: flex; height: 100vh; }
+  #graph { flex: 1; position: relative; }
+  svg { width: 100%; height: 100%; display: block; cursor: grab; }
+  svg.panning { cursor: grabbing; }
+
+  #side {
+    width: 320px; background: var(--panel); border-left: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; font-size: 13px;
+  }
+  #side h1 { font-size: 15px; margin: 0 0 4px; }
+  #side .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px; margin-bottom: 12px; }
+  .card h2 { font-size: 13px; margin: 0 0 8px; color: var(--accent); }
+  .kv { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-family: ui-monospace, Menlo, Consolas, monospace; text-align: right; }
+  .pill { display: inline-block; background: var(--node); border: 1px solid var(--node-border);
+    border-radius: 999px; padding: 2px 8px; font-size: 11px; margin: 2px 4px 2px 0; }
+  .empty { color: var(--muted); font-style: italic; }
+  ul.tr { list-style: none; margin: 0; padding: 0; }
+  ul.tr li { padding: 6px 0; border-top: 1px solid var(--line); }
+  ul.tr li:first-child { border-top: none; }
+  ul.tr .to { color: var(--accent2); font-family: ui-monospace, monospace; }
+  ul.tr .trig { color: var(--muted); font-size: 12px; }
+
+  #toolbar { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px;
+    background: rgba(28,32,41,.9); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  #toolbar button, #toolbar label { background: var(--node); color: var(--text);
+    border: 1px solid var(--node-border); border-radius: 6px; padding: 6px 10px;
+    font-size: 12px; cursor: pointer; }
+  #toolbar button:hover { border-color: var(--accent); }
+  #hint { position: absolute; bottom: 12px; left: 12px; color: var(--muted); font-size: 11px; }
+
+  .node rect { fill: var(--node); stroke: var(--node-border); stroke-width: 1.5; rx: 8; }
+  .node.is-main rect { fill: var(--node-main); }
+  .node.is-dead rect { fill: var(--node-dead); }
+  .node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
+  .node.dim { opacity: .28; }
+  .node text { fill: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
+  .node text.meta { fill: var(--muted); font-size: 9px; font-weight: 400; }
+  .node { cursor: pointer; }
+
+  path.edge { fill: none; stroke: var(--edge); stroke-width: 1.6; marker-end: url(#arrow); }
+  path.edge.hi { stroke: var(--edge-hi); stroke-width: 2.4; marker-end: url(#arrowHi); }
+  path.edge.dim { opacity: .12; }
+  text.edgelabel { fill: var(--muted); font-size: 10px; }
+  text.edgelabel.hi { fill: var(--accent); }
+  .edgelabel.dim { opacity: .12; }
+  #filerow { padding: 10px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="graph">
+    <div id="toolbar">
+      <button id="btnReset">Reset view</button>
+      <button id="btnRelayout">Re-layout</button>
+      <label>Load fsm.json <input id="file" type="file" accept="application/json" style="display:none"></label>
+    </div>
+    <svg id="svg">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3"
+                orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#6b7688"/>
+        </marker>
+        <marker id="arrowHi" markerWidth="10" markerHeight="10" refX="8" refY="3"
+                orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#57b8ff"/>
+        </marker>
+      </defs>
+      <g id="viewport">
+        <g id="edges"></g>
+        <g id="edgelabels"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+    <div id="hint">Scroll = zoom · drag background = pan · drag node = move · click node/edge = highlight</div>
+  </div>
+  <div id="side">
+    <h1>Tamagotchi FSM</h1>
+    <div class="sub" id="srcline">no data loaded</div>
+    <div id="detail">
+      <div class="card"><span class="empty">Click a state node to inspect it, or load a fsm.json.</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ==========================================================================
+//  Standalone FSM viewer. Loads fsm.json (produced by tools/fsm_graph.py) and
+//  renders an interactive graph. No external dependencies.
+//
+//  Layout: BFS "levels" from STATE_MAIN give an x-column per depth; nodes in a
+//  level are stacked vertically. Nodes are draggable; edges re-route live.
+// ==========================================================================
+const SVGNS = "http://www.w3.org/2000/svg";
+const NODE_W = 168, NODE_H = 44, LEVEL_DX = 260, NODE_DY = 70;
+
+let graph = null;      // {states, transitions, source}
+let pos = {};          // stateId -> {x, y}
+let selected = null;
+let view = { x: 40, y: 40, k: 1 };
+
+const svg = document.getElementById("svg");
+const viewport = document.getElementById("viewport");
+const gEdges = document.getElementById("edges");
+const gEdgeLabels = document.getElementById("edgelabels");
+const gNodes = document.getElementById("nodes");
+
+// ---- Try to auto-load fsm.json sitting next to this HTML file ----
+fetch("fsm.json").then(r => r.ok ? r.json() : Promise.reject())
+  .then(data => { setGraph(data); })
+  .catch(() => {
+    document.getElementById("srcline").textContent =
+      "fsm.json not found next to this file — use “Load fsm.json”. (Run: python tools/fsm_graph.py)";
+  });
+
+document.getElementById("file").addEventListener("change", e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => { try { setGraph(JSON.parse(rd.result)); } catch (err) { alert("Bad JSON: " + err); } };
+  rd.readAsText(f);
+});
+
+function setGraph(data) {
+  graph = data;
+  document.getElementById("srcline").textContent =
+    (data.source || "FSM") + " · " + data.states.length + " states · " + data.transitions.length + " transitions";
+  layout();
+  render();
+  resetView();
+}
+
+// ---- BFS-level layout from STATE_MAIN (fallback: first state) ----
+function layout() {
+  const ids = graph.states.map(s => s.id);
+  const root = ids.includes("STATE_MAIN") ? "STATE_MAIN" : ids[0];
+  const adj = {};
+  ids.forEach(id => adj[id] = []);
+  graph.transitions.forEach(t => { if (adj[t.from]) adj[t.from].push(t.to); });
+
+  const level = {};
+  const q = [root];
+  level[root] = 0;
+  while (q.length) {
+    const cur = q.shift();
+    for (const nx of adj[cur]) {
+      if (level[nx] === undefined) { level[nx] = level[cur] + 1; q.push(nx); }
+    }
+  }
+  // Unreached states get placed in a trailing column.
+  let maxLvl = Math.max(0, ...Object.values(level));
+  ids.forEach(id => { if (level[id] === undefined) level[id] = maxLvl + 1; });
+
+  // Group by level, stack vertically.
+  const byLevel = {};
+  ids.forEach(id => { (byLevel[level[id]] ||= []).push(id); });
+  pos = {};
+  Object.keys(byLevel).sort((a, b) => a - b).forEach(lvl => {
+    const col = byLevel[lvl];
+    col.forEach((id, i) => {
+      pos[id] = {
+        x: lvl * LEVEL_DX,
+        y: i * NODE_DY - (col.length - 1) * NODE_DY / 2
+      };
+    });
+  });
+}
+
+function stateMeta(id) { return graph.states.find(s => s.id === id); }
+
+// ---- Rendering ----
+function render() {
+  gEdges.innerHTML = ""; gEdgeLabels.innerHTML = ""; gNodes.innerHTML = "";
+
+  // Edges first (under nodes).
+  graph.transitions.forEach((t, idx) => {
+    const p = document.createElementNS(SVGNS, "path");
+    p.setAttribute("class", "edge");
+    p.dataset.idx = idx;
+    gEdges.appendChild(p);
+
+    const lbl = document.createElementNS(SVGNS, "text");
+    lbl.setAttribute("class", "edgelabel");
+    lbl.dataset.idx = idx;
+    lbl.textContent = t.trigger || "";
+    gEdgeLabels.appendChild(lbl);
+  });
+
+  graph.states.forEach(s => {
+    const g = document.createElementNS(SVGNS, "g");
+    g.setAttribute("class", "node" +
+      (s.id === "STATE_MAIN" ? " is-main" : "") +
+      (s.id === "STATE_DEAD" ? " is-dead" : ""));
+    g.dataset.id = s.id;
+
+    const rect = document.createElementNS(SVGNS, "rect");
+    rect.setAttribute("width", NODE_W); rect.setAttribute("height", NODE_H);
+    rect.setAttribute("rx", 8);
+    g.appendChild(rect);
+
+    const label = document.createElementNS(SVGNS, "text");
+    label.setAttribute("x", NODE_W / 2); label.setAttribute("y", 19);
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = s.id.replace(/^STATE_/, "");
+    g.appendChild(label);
+
+    const meta = document.createElementNS(SVGNS, "text");
+    meta.setAttribute("class", "meta");
+    meta.setAttribute("x", NODE_W / 2); meta.setAttribute("y", 33);
+    meta.setAttribute("text-anchor", "middle");
+    meta.textContent = (s.onUpdate || "?") + "()";
+    g.appendChild(meta);
+
+    g.addEventListener("mousedown", startNodeDrag);
+    g.addEventListener("click", ev => { ev.stopPropagation(); select(s.id); });
+    gNodes.appendChild(g);
+  });
+
+  updatePositions();
+}
+
+function nodeCenter(id) {
+  const p = pos[id];
+  return { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2 };
+}
+
+// Route an edge between two node boxes; self-loops draw a small arc on top.
+function edgePath(from, to) {
+  if (from === to) {
+    const p = pos[from];
+    const x = p.x + NODE_W / 2, y = p.y;
+    return `M ${x - 18} ${y} C ${x - 40} ${y - 46}, ${x + 40} ${y - 46}, ${x + 18} ${y}`;
+  }
+  const a = nodeCenter(from), b = nodeCenter(to);
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const mx = (a.x + b.x) / 2 + (dy > 0 ? 18 : -18);
+  const my = (a.y + b.y) / 2;
+  // Trim endpoints to box edges (approx: use center offset by half sizes).
+  const ang = Math.atan2(dy, dx);
+  const ax = a.x + Math.cos(ang) * (NODE_W / 2 + 2);
+  const ay = a.y + Math.sin(ang) * (NODE_H / 2 + 2);
+  const bx = b.x - Math.cos(ang) * (NODE_W / 2 + 8);
+  const by = b.y - Math.sin(ang) * (NODE_H / 2 + 8);
+  return `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
+}
+
+function updatePositions() {
+  gNodes.querySelectorAll(".node").forEach(g => {
+    const p = pos[g.dataset.id];
+    g.setAttribute("transform", `translate(${p.x},${p.y})`);
+  });
+  gEdges.querySelectorAll(".edge").forEach(p => {
+    const t = graph.transitions[+p.dataset.idx];
+    p.setAttribute("d", edgePath(t.from, t.to));
+  });
+  gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => {
+    const t = graph.transitions[+l.dataset.idx];
+    if (t.from === t.to) {
+      const p = pos[t.from];
+      l.setAttribute("x", p.x + NODE_W / 2); l.setAttribute("y", p.y - 40);
+      l.setAttribute("text-anchor", "middle");
+    } else {
+      const a = nodeCenter(t.from), b = nodeCenter(t.to);
+      l.setAttribute("x", (a.x + b.x) / 2 + 6);
+      l.setAttribute("y", (a.y + b.y) / 2 - 4);
+      l.setAttribute("text-anchor", "start");
+    }
+  });
+  applyViewTransform();
+}
+
+// ---- Selection / highlight ----
+function select(id) {
+  selected = id;
+  const related = new Set([id]);
+  graph.transitions.forEach(t => {
+    if (t.from === id || t.to === id) { related.add(t.from); related.add(t.to); }
+  });
+
+  gNodes.querySelectorAll(".node").forEach(g => {
+    g.classList.toggle("selected", g.dataset.id === id);
+    g.classList.toggle("dim", !related.has(g.dataset.id));
+  });
+  gEdges.querySelectorAll(".edge").forEach(p => {
+    const t = graph.transitions[+p.dataset.idx];
+    const hot = t.from === id || t.to === id;
+    p.classList.toggle("hi", hot);
+    p.classList.toggle("dim", !hot);
+  });
+  gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => {
+    const t = graph.transitions[+l.dataset.idx];
+    const hot = t.from === id || t.to === id;
+    l.classList.toggle("hi", hot);
+    l.classList.toggle("dim", !hot);
+  });
+
+  renderDetail(id);
+}
+
+function clearSelection() {
+  selected = null;
+  gNodes.querySelectorAll(".node").forEach(g => g.classList.remove("selected", "dim"));
+  gEdges.querySelectorAll(".edge").forEach(p => p.classList.remove("hi", "dim"));
+  gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => l.classList.remove("hi", "dim"));
+}
+
+function renderDetail(id) {
+  const s = stateMeta(id);
+  const outgoing = graph.transitions.filter(t => t.from === id);
+  const incoming = graph.transitions.filter(t => t.to === id);
+  const detail = document.getElementById("detail");
+
+  const trList = (arr, dir) => arr.length ? `<ul class="tr">` + arr.map(t => `
+      <li><span class="to">${dir === "out" ? "→ " + t.to.replace(/^STATE_/, "") : "← " + t.from.replace(/^STATE_/, "")}</span>
+      <div class="trig">${escapeHtml(t.trigger || "(always)")} · via ${t.via}</div></li>`).join("") + `</ul>`
+    : `<span class="empty">none</span>`;
+
+  detail.innerHTML = `
+    <div class="card">
+      <h2>${id}</h2>
+      <div class="kv"><span class="k">onEnter</span><span class="v">${s.onEnter || "—"}${s.enterLine ? " :" + s.enterLine : ""}</span></div>
+      <div class="kv"><span class="k">onUpdate</span><span class="v">${s.onUpdate || "—"}${s.updateLine ? " :" + s.updateLine : ""}</span></div>
+    </div>
+    <div class="card"><h2>Outgoing (${outgoing.length})</h2>${trList(outgoing, "out")}</div>
+    <div class="card"><h2>Incoming (${incoming.length})</h2>${trList(incoming, "in")}</div>
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+// ---- Pan / zoom ----
+function applyViewTransform() {
+  viewport.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+}
+function resetView() {
+  // Fit content roughly.
+  const xs = Object.values(pos).map(p => p.x);
+  const ys = Object.values(pos).map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  view = { x: 60 - minX, y: (svg.clientHeight / 2) - minY - NODE_H / 2, k: 1 };
+  applyViewTransform();
+}
+document.getElementById("btnReset").onclick = resetView;
+document.getElementById("btnRelayout").onclick = () => { layout(); updatePositions(); resetView(); };
+
+svg.addEventListener("wheel", e => {
+  e.preventDefault();
+  const scale = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const rect = svg.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  view.x = mx - (mx - view.x) * scale;
+  view.y = my - (my - view.y) * scale;
+  view.k *= scale;
+  applyViewTransform();
+}, { passive: false });
+
+let panning = false, panStart = null;
+svg.addEventListener("mousedown", e => {
+  if (e.target.closest(".node")) return;   // node drag handled separately
+  panning = true; svg.classList.add("panning");
+  panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+  clearSelection();
+  document.getElementById("detail").innerHTML =
+    '<div class="card"><span class="empty">Click a state node to inspect it.</span></div>';
+});
+window.addEventListener("mousemove", e => {
+  if (!panning) return;
+  view.x = e.clientX - panStart.x; view.y = e.clientY - panStart.y;
+  applyViewTransform();
+});
+window.addEventListener("mouseup", () => { panning = false; svg.classList.remove("panning"); });
+
+// ---- Node drag ----
+let drag = null;
+function startNodeDrag(e) {
+  e.stopPropagation();
+  const id = e.currentTarget.dataset.id;
+  drag = { id, sx: e.clientX, sy: e.clientY, ox: pos[id].x, oy: pos[id].y, moved: false };
+}
+window.addEventListener("mousemove", e => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.sx) / view.k, dy = (e.clientY - drag.sy) / view.k;
+  if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+  pos[drag.id] = { x: drag.ox + dx, y: drag.oy + dy };
+  updatePositions();
+});
+window.addEventListener("mouseup", () => { drag = null; });
+</script>
+</body>
+</html>

@@ -1,0 +1,215 @@
+{
+  "states": [
+    {
+      "id": "STATE_MAIN",
+      "onEnter": "mainOnEnter",
+      "onUpdate": "mainOnUpdate",
+      "enterLine": 122,
+      "updateLine": 135
+    },
+    {
+      "id": "STATE_MENU",
+      "onEnter": "topMenuOnEnter",
+      "onUpdate": "topMenuOnUpdate",
+      "enterLine": 192,
+      "updateLine": 197
+    },
+    {
+      "id": "STATE_ACTION_MENU",
+      "onEnter": "actionMenuOnEnter",
+      "onUpdate": "actionMenuOnUpdate",
+      "enterLine": 243,
+      "updateLine": 248
+    },
+    {
+      "id": "STATE_DIGIMON_MENU",
+      "onEnter": "digimonMenuOnEnter",
+      "onUpdate": "digimonMenuOnUpdate",
+      "enterLine": 280,
+      "updateLine": 285
+    },
+    {
+      "id": "STATE_STATS_PAGE",
+      "onEnter": "statsPageOnEnter",
+      "onUpdate": "statsPageOnUpdate",
+      "enterLine": 303,
+      "updateLine": 309
+    },
+    {
+      "id": "STATE_DIGIVOLUTION_PAGE",
+      "onEnter": "digivolutionOnEnter",
+      "onUpdate": "digivolutionOnUpdate",
+      "enterLine": 356,
+      "updateLine": 361
+    },
+    {
+      "id": "STATE_TRAINING_MENU",
+      "onEnter": "trainingMenuOnEnter",
+      "onUpdate": "trainingMenuOnUpdate",
+      "enterLine": 320,
+      "updateLine": 325
+    },
+    {
+      "id": "STATE_SETTINGS",
+      "onEnter": "settingsOnEnter",
+      "onUpdate": "settingsOnUpdate",
+      "enterLine": 215,
+      "updateLine": 221
+    },
+    {
+      "id": "STATE_DEAD",
+      "onEnter": "deadOnEnter",
+      "onUpdate": "deadOnUpdate",
+      "enterLine": 482,
+      "updateLine": 491
+    },
+    {
+      "id": "STATE_MINIGAME",
+      "onEnter": "minigameOnEnter",
+      "onUpdate": "minigameOnUpdate",
+      "enterLine": 412,
+      "updateLine": 423
+    }
+  ],
+  "transitions": [
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_DEAD",
+      "trigger": "pet.isDead(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_MENU",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_ACTION_MENU",
+      "trigger": "case 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "case 1",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_SETTINGS",
+      "trigger": "case 2",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Exit -> main screen",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "pet.isSleeping(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MINIGAME",
+      "trigger": "pet.isSleeping(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Sleep",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Clean",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MENU",
+      "trigger": "Back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_STATS_PAGE",
+      "trigger": "case 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_TRAINING_MENU",
+      "trigger": "case 1",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_DIGIVOLUTION_PAGE",
+      "trigger": "case 2",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_MENU",
+      "trigger": "Back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_STATS_PAGE",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIVOLUTION_PAGE",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIVOLUTION_PAGE",
+      "to": "STATE_MAIN",
+      "trigger": "show the new Digimon immediately",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_TRAINING_MENU",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "Back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_SETTINGS",
+      "to": "STATE_MAIN",
+      "trigger": "menu.selection == 1",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_SETTINGS",
+      "to": "STATE_MENU",
+      "trigger": "menu.selection == 2",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DEAD",
+      "to": "STATE_MAIN",
+      "trigger": "menu.selection == 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MINIGAME",
+      "to": "STATE_MAIN",
+      "trigger": "mgScore >= 5",
+      "via": "onUpdate"
+    }
+  ],
+  "source": "src/GameStateMachine.cpp"
+}
