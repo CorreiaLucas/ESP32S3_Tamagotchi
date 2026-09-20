@@ -1,7 +1,124 @@
 #include "DisplayManager.h"
 #include "Sprites.h"
+// NPC sprite source. NOTE: there is no Pandamon art in Assets/ yet, so this
+// uses an existing 30x30 profile as a STAND-IN so the NPC is visible/testable.
+// To swap in real art: generate it (see README "Digimon sprite generator" or
+// png_to_rgb565.py at --size 30), then change NPC_SPRITE below to the new
+// symbol. Nothing else needs to change.
+#include "pandamonSprites.h"
+#define NPC_SPRITE pandamon_idle
 #include <string.h>
 #include <stdio.h>
+
+// --------------------------------------------------------------------------
+//  Static scene layer: outline > NPC sprite > forest background.
+//
+//  Keeping the NPC here (rather than painting it as a one-off overlay) is what
+//  makes it survive the pet walking over it. drawSprite() fills the pet's
+//  transparent pixels from this, and drawBackgroundRegion() repaints from this,
+//  so both the NPC and its selection outline are restored automatically.
+// --------------------------------------------------------------------------
+uint16_t DisplayManager::scenePixel(int sx, int sy) const {
+  // 1px selection outline drawn just outside the sprite box.
+  if (npcHighlight) {
+    const int x0 = NPC_X - 2, y0 = NPC_Y - 2;
+    const int x1 = NPC_X + NPC_SIZE + 1, y1 = NPC_Y + NPC_SIZE + 1;
+    bool onVert = (sx == x0 || sx == x1) && sy >= y0 && sy <= y1;
+    bool onHorz = (sy == y0 || sy == y1) && sx >= x0 && sx <= x1;
+    if (onVert || onHorz) return NPC_OUTLINE_COLOR;
+  }
+  // The NPC itself (black == transparent, so the forest shows through).
+  if (sx >= NPC_X && sx < NPC_X + NPC_SIZE &&
+      sy >= NPC_Y && sy < NPC_Y + NPC_SIZE) {
+    uint16_t c = pgm_read_word(&NPC_SPRITE[(sy - NPC_Y) * NPC_SIZE + (sx - NPC_X)]);
+    if (c != TFT_BLACK) return c;
+  }
+  // Poops lie on the ground behind the pet, wherever they were dropped.
+  for (int i = 0; i < poopPlaced; i++) {
+    if (sx >= poops[i].x && sx < poops[i].x + POOP_SIZE &&
+        sy >= poops[i].y && sy < poops[i].y + POOP_SIZE) {
+      uint16_t c = pgm_read_word(&poop_frame[(sy - poops[i].y) * POOP_SIZE
+                                            + (sx - poops[i].x)]);
+      if (c != TFT_BLACK) return c;
+    }
+  }
+  return pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx]);
+}
+
+void DisplayManager::addPoopBehind(int petX, int petY, int petW, int petH,
+                                   bool facingRight) {
+  if (poopPlaced >= MAX_POOPS) return;
+
+  // The pet only strolls 14-36px between pauses, so the naive "always right
+  // behind me" spot would often land on an existing poop. Try progressively
+  // further offsets (and a little vertical variation) and take the first that
+  // clears everything already on the ground.
+  static const int along[] = { 0, 24, 48 };            // distance out from the pet
+  static const int vert[]  = { 0, -12, 12, -24, 24 };  // feet level, then up/down
+  const int feetY = petY + petH - POOP_SIZE;
+
+  int bestX = 0, bestY = feetY, bestGap = -1;
+
+  // side 0 = behind the pet (preferred), side 1 = in front. The fallback side
+  // matters when "behind" is off-screen: a pet cornered on the left while facing
+  // right has every behind-offset clamp to x=0, which would stack every poop on
+  // the same pixel.
+  for (int side = 0; side < 2; side++) {
+    const bool toLeft = (side == 0) ? facingRight : !facingRight;
+   for (unsigned vi = 0; vi < sizeof(vert) / sizeof(vert[0]); vi++) {
+    for (unsigned ai = 0; ai < sizeof(along) / sizeof(along[0]); ai++) {
+      int px = toLeft ? (petX - POOP_SIZE + 6 - along[ai])
+                      : (petX + petW - 6 + along[ai]);
+      int py = feetY + vert[vi];
+      // Keep it fully on screen and out of the status-bar band.
+      if (px < 0) px = 0;
+      if (px > SCREEN_WIDTH - POOP_SIZE)  px = SCREEN_WIDTH - POOP_SIZE;
+      if (py < UI_BAR_HEIGHT)             py = UI_BAR_HEIGHT;
+      if (py > SCREEN_HEIGHT - POOP_SIZE) py = SCREEN_HEIGHT - POOP_SIZE;
+
+      // Separation from the nearest existing poop. Two equal-size boxes miss
+      // each other exactly when max(|dx|,|dy|) >= POOP_SIZE, so that maximum is
+      // the useful measure of "how clear is this spot".
+      int gap = SCREEN_WIDTH;          // nothing placed yet -> wide open
+      for (int i = 0; i < poopPlaced; i++) {
+        int gx = px - poops[i].x; if (gx < 0) gx = -gx;
+        int gy = py - poops[i].y; if (gy < 0) gy = -gy;
+        int sep = (gx > gy) ? gx : gy;
+        if (sep < gap) gap = sep;
+      }
+
+      if (gap >= POOP_SIZE + POOP_MIN_GAP) {   // clear -> take it immediately
+        poops[poopPlaced].x = px;
+        poops[poopPlaced].y = py;
+        poopPlaced++;
+        return;
+      }
+      if (gap > bestGap) { bestGap = gap; bestX = px; bestY = py; }
+    }
+   }
+  }
+
+  // Every candidate was crowded (e.g. the pet is cornered): use whichever was
+  // least crowded rather than dropping the poop on top of another.
+  poops[poopPlaced].x = bestX;
+  poops[poopPlaced].y = bestY;
+  poopPlaced++;
+}
+
+void DisplayManager::syncPoopCount(int count) {
+  if (count < 0) count = 0;
+  if (count > MAX_POOPS) count = MAX_POOPS;
+  if (count < poopPlaced) { poopPlaced = count; return; }   // cleaned
+  // Poops whose position we never saw (restored from flash): fall back to the
+  // old fixed spots along the bottom.
+  static const int fallbackX[MAX_POOPS] = { 6, 104, 54 };
+  while (poopPlaced < count) {
+    poops[poopPlaced].x = fallbackX[poopPlaced];
+    poops[poopPlaced].y = SCREEN_HEIGHT - POOP_SIZE - 2;
+    poopPlaced++;
+  }
+}
+
 
 DisplayManager::DisplayManager()
 #ifdef SIMULATOR_BUILD
@@ -93,9 +210,8 @@ void DisplayManager::drawBackgroundRegion(int x, int y, int w, int h) {
   for (int row = 0; row < h; row++) {
     int sy = y + row;
     if (sy < 0 || sy >= SCREEN_HEIGHT) continue;
-    const uint16_t* srcRow = &background_data_forest[sy * SCREEN_WIDTH + x0];
     for (int i = 0; i < rowW; i++) {
-      rowBuf[i] = pgm_read_word(&srcRow[i]);
+      rowBuf[i] = scenePixel(x0 + i, sy);
     }
     pushRGBBuf(x0, sy, rowBuf, rowW, 1);
   }
@@ -192,24 +308,14 @@ void DisplayManager::composeMainScene(int hunger, int happiness, int energy,
                                       int petX, int petY, int petW, int petH,
                                       const uint16_t* petFrame, bool petFlip,
                                       int poopCount) {
-  // 1. Background straight from PROGMEM into the canvas.
+  // Poops are part of the static scene layer now, so reconcile them with the
+  // game's count before seeding the canvas.
+  syncPoopCount(poopCount);
+
+  // 1. Static scene (forest + NPC + outline + poops) into the canvas.
   for (int row = 0; row < SCREEN_HEIGHT; row++) {
     for (int col = 0; col < SCREEN_WIDTH; col++) {
-      frameBuffer.drawPixel(col, row, pgm_read_word(&background_data_forest[row * SCREEN_WIDTH + col]));
-    }
-  }
-
-  // 2. Poops (transparent-on-background) BEFORE the pet so the pet can overlap.
-  {
-    int poopXs[] = { 6, 104, 54 };
-    int poopY = 104;
-    for (int i = 0; i < poopCount && i < 3; i++) {
-      for (int row = 0; row < 20; row++) {
-        for (int col = 0; col < 20; col++) {
-          uint16_t c = pgm_read_word(&poop_frame[row * 20 + col]);
-          if (c != TFT_BLACK) frameBuffer.drawPixel(poopXs[i] + col, poopY + row, c);
-        }
-      }
+      frameBuffer.drawPixel(col, row, scenePixel(col, row));
     }
   }
 
@@ -391,7 +497,7 @@ void DisplayManager::drawSprite(int x, int y, int width, int height, const uint1
     for (int col = 0; col < width; col++) {
       int sx = x + col;
       uint16_t bg = (sx >= 0 && sx < SCREEN_WIDTH && sy >= 0 && sy < SCREEN_HEIGHT)
-                      ? pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx])
+                      ? scenePixel(sx, sy)
                       : TFT_BLACK;
       uint16_t color = pgm_read_word(&frame[row * width + col]);
       packed[row * width + col] = (color != TFT_BLACK) ? color : bg;
@@ -409,7 +515,7 @@ void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, cons
     for (int col = 0; col < width; col++) {
       int sx = x + col;
       uint16_t bg = (sx >= 0 && sx < SCREEN_WIDTH && sy >= 0 && sy < SCREEN_HEIGHT)
-                      ? pgm_read_word(&background_data_forest[sy * SCREEN_WIDTH + sx])
+                      ? scenePixel(sx, sy)
                       : TFT_BLACK;
       uint16_t color = pgm_read_word(&frame[row * width + (width - 1 - col)]);
       packed[row * width + col] = (color != TFT_BLACK) ? color : bg;
@@ -419,10 +525,13 @@ void DisplayManager::drawSpriteFlipped(int x, int y, int width, int height, cons
 }
 
 void DisplayManager::drawPoops(int count) {
-  int poopX[] = { 6, 104, 54 };
-  int poopY = 104;
-  for (int i = 0; i < count; i++) {
-    drawTransparentImage(poopX[i], poopY, 20, 20, poop_frame, TFT_BLACK);
+  // Draw from the recorded drop positions. (The old version indexed a 3-entry
+  // array by `count` with no bound, which would read past it if the cap ever
+  // rose above 3.)
+  syncPoopCount(count);
+  for (int i = 0; i < poopPlaced; i++) {
+    drawTransparentImage(poops[i].x, poops[i].y, POOP_SIZE, POOP_SIZE,
+                         poop_frame, TFT_BLACK);
   }
 }
 
@@ -669,6 +778,54 @@ void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
   pushFrame();
 }
 
+void DisplayManager::drawTrainResult(const char* statName, int before, int after,
+                                     int energyLeft) {
+  seedBufferBackground();
+  gfx = &frameBuffer;
+
+  const int pnlX = 10,  pnlY = 28;
+  const int pnlW = 108, pnlH = 74;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  frameBuffer.setTextSize(1);
+  char line[32];
+
+  // Title
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 6, pnlY + 6);
+  frameBuffer.print("Training done!");
+  frameBuffer.drawFastHLine(pnlX + 4, pnlY + 17, pnlW - 8, STAT_FRAME_COLOR);
+
+  // Which stat (own line, so long values below can't push it off the panel).
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 8, pnlY + 23);
+  frameBuffer.print(statName);
+
+  // before ==> after. Kept on its own line: maxHp reaches 4 digits, and
+  // "1250 ==> 1330" is 13 chars (78px) inside a 96px inner width.
+  snprintf(line, sizeof(line), "%d ==> %d", before, after);
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 8, pnlY + 35);
+  frameBuffer.print(line);
+
+  // Gain (highlighted) and the energy it cost.
+  int gain = after - before;
+  snprintf(line, sizeof(line), "+%d", gain > 0 ? gain : 0);
+  frameBuffer.setTextColor(STAT_ENERGY_COLOR);
+  frameBuffer.setCursor(pnlX + 8, pnlY + 47);
+  frameBuffer.print(line);
+
+  snprintf(line, sizeof(line), "Energy %d", energyLeft);
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 42, pnlY + 47);
+  frameBuffer.print(line);
+
+  drawMenuRow(pnlX + 4, pnlY + pnlH - 18, pnlW - 8, 14, "OK", true);
+
+  gfx = nullptr;
+  pushFrame();
+}
+
 void DisplayManager::drawGameOver(int selectedIndex) {
   seedBufferBackground();
   gfx = &frameBuffer;
@@ -691,6 +848,75 @@ void DisplayManager::drawGameOver(int selectedIndex) {
   const int itemPitch = 17;
   for (int i = 0; i < 2; i++) {
     drawMenuRow(itemX, itemY0 + i * itemPitch, itemW, itemH,
+                options[i], i == selectedIndex);
+  }
+
+  gfx = nullptr;
+  pushFrame();
+}
+
+void DisplayManager::drawDialog(const char* speaker, const char* text,
+                                const char* const* options, int optionCount,
+                                int selectedIndex) {
+  seedBufferBackground();
+  gfx = &frameBuffer;
+
+  const int pnlX = 6,   pnlY = 20;
+  const int pnlW = 116, pnlH = 96;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  // Speaker name (accent) at the top of the panel.
+  frameBuffer.setTextSize(1);
+  if (speaker) {
+    frameBuffer.setTextColor(STAT_HAPPY_COLOR);
+    frameBuffer.setCursor(pnlX + 4, pnlY + 4);
+    frameBuffer.print(speaker);
+  }
+
+  // Body text: naive word-wrap at ~18 chars/line into the panel body.
+  frameBuffer.setTextColor(MENU_TEXT_LIGHT);
+  const int bodyX = pnlX + 4;
+  int bodyY = pnlY + 16;
+  const int lineH = 9;
+  const int maxChars = 18;
+  if (text) {
+    int lineLen = 0;
+    int wordStart = 0;
+    char line[maxChars + 2];
+    int li = 0;
+    for (int i = 0; ; i++) {
+      char ch = text[i];
+      bool boundary = (ch == ' ' || ch == '\0');
+      if (boundary) {
+        int wordLen = i - wordStart;
+        if (lineLen + (lineLen ? 1 : 0) + wordLen > maxChars && lineLen > 0) {
+          line[li] = '\0';
+          frameBuffer.setCursor(bodyX, bodyY);
+          frameBuffer.print(line);
+          bodyY += lineH;
+          li = 0; lineLen = 0;
+        }
+        if (lineLen && li < maxChars) { line[li++] = ' '; lineLen++; }
+        for (int k = wordStart; k < i && li < maxChars; k++) { line[li++] = text[k]; lineLen++; }
+        wordStart = i + 1;
+      }
+      if (ch == '\0') break;
+    }
+    if (li > 0) {
+      line[li] = '\0';
+      frameBuffer.setCursor(bodyX, bodyY);
+      frameBuffer.print(line);
+      bodyY += lineH;
+    }
+  }
+
+  // Options as selectable rows near the bottom of the panel.
+  const int itemX = pnlX + 4;
+  const int itemW = pnlW - 8;
+  const int itemH = 12;
+  int optY = pnlY + pnlH - optionCount * (itemH + 2) - 2;
+  for (int i = 0; i < optionCount; i++) {
+    drawMenuRow(itemX, optY + i * (itemH + 2), itemW, itemH,
                 options[i], i == selectedIndex);
   }
 

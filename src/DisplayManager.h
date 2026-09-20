@@ -87,6 +87,34 @@
 #define MENU_TEXT_LIGHT    0xFFFF  // text on unselected rows
 #define MENU_TEXT_DARK     0x0000  // text on the light selected row
 
+// --------------------------------------------------------------------------
+// STATIC SCENE NPC (Pandamon the trainer).
+//   The NPC is part of the *static scene layer*: it sits behind the pet and is
+//   returned by scenePixel(), so every path that "erases to background"
+//   automatically restores it (see DisplayManager.cpp).
+//
+//   Placement: the stat bars only span x=2..90, so the top-right corner is
+//   free. Tune these four values to move/resize the NPC -- nothing else needs
+//   to change.
+// --------------------------------------------------------------------------
+// Poops are recorded where the pet dropped them (behind it), not at fixed
+// screen spots, and live in the static scene layer so the pet walks in front of
+// them and the trail-erase restores them automatically.
+#define MAX_POOPS       3         // PetState caps poopCount at 3
+#define POOP_SIZE       20        // poop_frame is 20x20
+#define POOP_MIN_GAP    4         // extra clearance between two poops, so
+                                  // repeat drops don't stack on each other
+
+#define NPC_SIZE        40        // square sprite size (px). MUST match the real
+                                  // sprite: scenePixel() indexes rows by this,
+                                  // so a wrong value shears the image.
+#define NPC_X           86        // left edge (86+40 = 126 -> 2px right margin;
+                                  // 96 would run 8px off the 128px panel)
+#define NPC_Y           28        // top edge (outline starts at 26, clearing the
+                                  // stat bars which occupy y<=25)
+#define NPC_OUTLINE_COLOR   0xFFE0   // yellow highlight when selected
+                                     // (swap for TFT_BLUE / 0x001F for blue)
+
 
 #ifdef SIMULATOR_BUILD
   #include <Adafruit_ST7789.h>
@@ -117,6 +145,26 @@ private:
   int originY = 0;
   int profileSpriteWidth;
   int profileSpriteHeight;
+
+  // Whether the NPC is drawn with its selection outline.
+  bool npcHighlight = false;
+
+  // Where each poop was dropped (top-left, canvas coords).
+  struct PoopSpot { int x; int y; };
+  PoopSpot poops[MAX_POOPS];
+  int poopPlaced = 0;
+  // Reconcile the number of drawn poops with the game's count: truncate when
+  // the pet is cleaned, or pad with fallback spots for poops restored from
+  // flash at boot (whose original position we never recorded).
+  void syncPoopCount(int count);
+
+  // ---- Static scene layer -------------------------------------------------
+  // What sits BEHIND the pet at canvas pixel (sx,sy): the selection outline,
+  // then the NPC sprite, then the forest background. Every routine that used
+  // to read background_data_forest directly now goes through this, so the pet's
+  // compositing and all the trail-erase paths restore the NPC instead of
+  // painting it out.
+  uint16_t scenePixel(int sx, int sy) const;
 
   // Composite the full main scene into frameBuffer (does NOT push to panel).
   void composeMainScene(int hunger, int happiness, int energy,
@@ -162,6 +210,9 @@ public:
   void drawSpriteFlipped(int x, int y, int width, int height, const uint16_t* frame);
 
   void drawPoops(int count);
+  // Record a new poop just behind the pet, aligned to its feet and clamped on
+  // screen. Call renderMainScene() afterwards to show it.
+  void addPoopBehind(int petX, int petY, int petW, int petH, bool facingRight);
   void drawProfileSprite(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
   void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
   void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp,
@@ -170,6 +221,17 @@ public:
                             int maxHp, int ap, int dp, int ageDays,
                             int happiness, int hunger);
   void drawGameOver(int selectedIndex);
+  // Turn the NPC's selection outline on/off. Call renderMainScene() afterwards
+  // to make the change visible.
+  void setNpcHighlight(bool on) { npcHighlight = on; }
+  bool getNpcHighlight() const { return npcHighlight; }
+  // Post-training summary: "<stat>  <before> ==> <after>".
+  void drawTrainResult(const char* statName, int before, int after, int energyLeft);
+  // Minimal NPC dialog screen: a speaker line, the body text (wrapped), and up
+  // to `optionCount` selectable options (selectedIndex highlighted). Driven by
+  // the data-table DialogManager via STATE_NPC_DIALOG.
+  void drawDialog(const char* speaker, const char* text,
+                  const char* const* options, int optionCount, int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
 
   void drawMinigameTopBar(int score, int timeLeft);

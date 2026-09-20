@@ -1,0 +1,263 @@
+{
+  "states": [
+    {
+      "id": "STATE_MAIN",
+      "category": "system",
+      "onEnter": "mainOnEnter",
+      "onUpdate": "mainOnUpdate",
+      "enterLine": 158,
+      "updateLine": 163
+    },
+    {
+      "id": "STATE_MENU",
+      "category": "menu",
+      "onEnter": "topMenuOnEnter",
+      "onUpdate": "topMenuOnUpdate",
+      "enterLine": 241,
+      "updateLine": 246
+    },
+    {
+      "id": "STATE_ACTION_MENU",
+      "category": "menu",
+      "onEnter": "actionMenuOnEnter",
+      "onUpdate": "actionMenuOnUpdate",
+      "enterLine": 295,
+      "updateLine": 300
+    },
+    {
+      "id": "STATE_DIGIMON_MENU",
+      "category": "menu",
+      "onEnter": "digimonMenuOnEnter",
+      "onUpdate": "digimonMenuOnUpdate",
+      "enterLine": 332,
+      "updateLine": 337
+    },
+    {
+      "id": "STATE_STATS_PAGE",
+      "category": "page",
+      "onEnter": "statsPageOnEnter",
+      "onUpdate": "statsPageOnUpdate",
+      "enterLine": 357,
+      "updateLine": 363
+    },
+    {
+      "id": "STATE_DIGIVOLUTION_PAGE",
+      "category": "page",
+      "onEnter": "digivolutionOnEnter",
+      "onUpdate": "digivolutionOnUpdate",
+      "enterLine": 374,
+      "updateLine": 379
+    },
+    {
+      "id": "STATE_SETTINGS",
+      "category": "menu",
+      "onEnter": "settingsOnEnter",
+      "onUpdate": "settingsOnUpdate",
+      "enterLine": 267,
+      "updateLine": 273
+    },
+    {
+      "id": "STATE_DEAD",
+      "category": "system",
+      "onEnter": "deadOnEnter",
+      "onUpdate": "deadOnUpdate",
+      "enterLine": 500,
+      "updateLine": 509
+    },
+    {
+      "id": "STATE_MINIGAME",
+      "category": "action",
+      "onEnter": "minigameOnEnter",
+      "onUpdate": "minigameOnUpdate",
+      "enterLine": 430,
+      "updateLine": 441
+    },
+    {
+      "id": "STATE_NPC_DIALOG",
+      "category": "dialog",
+      "onEnter": "npcDialogOnEnter",
+      "onUpdate": "npcDialogOnUpdate",
+      "enterLine": 593,
+      "updateLine": 604
+    },
+    {
+      "id": "STATE_TRAIN_RESULT",
+      "category": "page",
+      "onEnter": "trainResultOnEnter",
+      "onUpdate": "trainResultOnUpdate",
+      "enterLine": 642,
+      "updateLine": 646
+    }
+  ],
+  "transitions": [
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_DEAD",
+      "trigger": "pet.isDead(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_NPC_DIALOG",
+      "trigger": "npcSelected",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_MENU",
+      "trigger": "npcSelected",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_ACTION_MENU",
+      "trigger": "case 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "case 1",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_NPC_DIALOG",
+      "trigger": "Talk -> village elder",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_SETTINGS",
+      "trigger": "case 3",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Exit -> main screen",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "pet.isSleeping(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MINIGAME",
+      "trigger": "pet.isSleeping(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Sleep",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MAIN",
+      "trigger": "Clean",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_MENU",
+      "trigger": "Back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_STATS_PAGE",
+      "trigger": "case 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_NPC_DIALOG",
+      "trigger": "Training -> Pandamon NPC",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_DIGIVOLUTION_PAGE",
+      "trigger": "case 2",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIMON_MENU",
+      "to": "STATE_MENU",
+      "trigger": "Back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_STATS_PAGE",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIVOLUTION_PAGE",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DIGIVOLUTION_PAGE",
+      "to": "STATE_MAIN",
+      "trigger": "show the new Digimon immediately",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_SETTINGS",
+      "to": "STATE_MAIN",
+      "trigger": "menu.selection == 1",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_SETTINGS",
+      "to": "STATE_MENU",
+      "trigger": "menu.selection == 2",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_DEAD",
+      "to": "STATE_MAIN",
+      "trigger": "menu.selection == 0",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MINIGAME",
+      "to": "STATE_MAIN",
+      "trigger": "mgScore >= 5",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_NPC_DIALOG",
+      "to": "STATE_MAIN",
+      "trigger": "!dlg.isActive(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_NPC_DIALOG",
+      "to": "STATE_TRAIN_RESULT",
+      "trigger": "trainShowResult",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_NPC_DIALOG",
+      "to": "STATE_MAIN",
+      "trigger": "conversation finished",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_TRAIN_RESULT",
+      "to": "STATE_NPC_DIALOG",
+      "trigger": "back to Pandamon (\"Another round?\")",
+      "via": "onUpdate"
+    }
+  ],
+  "source": "src/GameStateMachine.cpp"
+}

@@ -74,6 +74,7 @@ extern const DigimonSprites DIGIMON_koromon;
 extern const DigimonSprites DIGIMON_kapurimon;
 extern const DigimonSprites DIGIMON_kuramon;
 extern const DigimonSprites DIGIMON_pagumon;
+extern const DigimonSprites DIGIMON_pandamon;
 
 // Ordered list for iteration / digivolution chains, plus a name lookup.
 extern const DigimonSprites* const DIGIMON_ALL[];
