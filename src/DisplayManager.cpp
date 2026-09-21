@@ -18,40 +18,20 @@
 //  transparent pixels from this, and drawBackgroundRegion() repaints from this,
 //  so both the NPC and its selection outline are restored automatically.
 // --------------------------------------------------------------------------
-// True if scene pixel (sx,sy) lands on an OPAQUE pixel of the NPC sprite.
-// (Black == transparent, so those don't count.) Used both to draw the NPC and
-// to trace a silhouette-hugging selection outline.
-static inline bool npcOpaqueAt(int sx, int sy) {
-  if (sx < NPC_X || sx >= NPC_X + NPC_SIZE ||
-      sy < NPC_Y || sy >= NPC_Y + NPC_SIZE) return false;
-  uint16_t c = pgm_read_word(&NPC_SPRITE[(sy - NPC_Y) * NPC_SIZE + (sx - NPC_X)]);
-  return c != TFT_BLACK;
-}
-
 uint16_t DisplayManager::scenePixel(int sx, int sy) const {
-  // The NPC itself (black == transparent, so the forest shows through).
-  if (npcOpaqueAt(sx, sy)) {
-    return pgm_read_word(&NPC_SPRITE[(sy - NPC_Y) * NPC_SIZE + (sx - NPC_X)]);
-  }
-
-  // Silhouette-hugging selection outline: a 1px halo that follows the SPRITE'S
-  // SHAPE, not the image box. A (transparent) pixel is part of the outline when
-  // any of its 8 neighbours is an opaque sprite pixel -- i.e. it sits just
-  // outside the character's real edge. This wraps ears/limbs, not a square.
+  // 1px selection outline drawn just outside the sprite box.
   if (npcHighlight) {
-    // 2px-thick silhouette halo: a transparent pixel is part of the outline if
-    // any opaque sprite pixel lies within 2px (Chebyshev distance). Bounded to
-    // a +2px halo around the sprite box for a cheap early-out.
-    const int R = 2;
-    if (sx >= NPC_X - R && sx <= NPC_X + NPC_SIZE - 1 + R &&
-        sy >= NPC_Y - R && sy <= NPC_Y + NPC_SIZE - 1 + R) {
-      for (int dy = -R; dy <= R; dy++) {
-        for (int dx = -R; dx <= R; dx++) {
-          if (dx == 0 && dy == 0) continue;
-          if (npcOpaqueAt(sx + dx, sy + dy)) return NPC_OUTLINE_COLOR;
-        }
-      }
-    }
+    const int x0 = NPC_X - 2, y0 = NPC_Y - 2;
+    const int x1 = NPC_X + NPC_SIZE + 1, y1 = NPC_Y + NPC_SIZE + 1;
+    bool onVert = (sx == x0 || sx == x1) && sy >= y0 && sy <= y1;
+    bool onHorz = (sy == y0 || sy == y1) && sx >= x0 && sx <= x1;
+    if (onVert || onHorz) return NPC_OUTLINE_COLOR;
+  }
+  // The NPC itself (black == transparent, so the forest shows through).
+  if (sx >= NPC_X && sx < NPC_X + NPC_SIZE &&
+      sy >= NPC_Y && sy < NPC_Y + NPC_SIZE) {
+    uint16_t c = pgm_read_word(&NPC_SPRITE[(sy - NPC_Y) * NPC_SIZE + (sx - NPC_X)]);
+    if (c != TFT_BLACK) return c;
   }
   // Poops lie on the ground behind the pet, wherever they were dropped.
   for (int i = 0; i < poopPlaced; i++) {

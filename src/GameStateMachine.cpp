@@ -7,7 +7,6 @@
 #include "SoundManager.h"
 #include "CharacterManager.h"
 #include "DigimonRegistry.h"
-#include "DialogManager.h"
 
 // ==========================================================================
 //  Managers (single instances shared by every state handler).
@@ -17,7 +16,6 @@ static DisplayManager  display;
 static InputManager    input;
 static SoundManager    sound;
 static CharacterManager cat;
-static DialogManager   dlg;
 
 // Current active state. Never assign this directly outside changeState().
 static GameState currentState = STATE_MAIN;
@@ -56,40 +54,21 @@ static const unsigned long SCREENSAVER_TIMEOUT = 60000;
 //  Menu definitions. The items live in flash; each menu state binds them into
 //  the shared `menu` controller in its onEnter().
 // ==========================================================================
-static const char* topMenuItems[]      = { "Action", "Digimon", "Talk", "Settings", "Exit" };
+static const char* topMenuItems[]      = { "Action", "Digimon", "Settings", "Exit" };
 static const char* actionMenuItems[]   = { "Feed", "Play", "Sleep", "Clean", "Back" };
 static const char* digimonMenuItems[]  = { "Stats", "Training", "Digivolution", "Back" };
+static const char* trainingMenuItems[] = { "Train HP", "Train AP", "Train DP", "Back" };
 
-static const int NUM_MENU_ITEMS     = 5;
+static const int NUM_MENU_ITEMS     = 4;
 static const int NUM_ACTION_ITEMS   = 5;
 static const int NUM_DIGIMON_ITEMS  = 4;
 static const int NUM_SETTINGS_ITEMS = 3;
+static const int NUM_TRAINING_ITEMS = 4;
 
 // Single shared menu controller: only one menu is on screen at a time, so one
 // instance is enough. Its `selection` also doubles as the selection index for
 // the non-list pages (digivolution list, game-over choice).
 static MenuController menu;
-
-// Which conversation STATE_NPC_DIALOG will run next. Menu handlers set this
-// just before transitioning, so one dialog state serves every NPC.
-static const DialogScript* pendingDialog = &DIALOG_intro_jijimon;
-
-// ---- NPC selection on the main screen ------------------------------------
-// LEFT/RIGHT highlights the Pandamon NPC in the top-right corner; OK then
-// talks to it instead of opening the top menu. With only one NPC this is a
-// simple on/off toggle; with more it would become an index.
-static bool npcSelected = false;
-
-// ---- Training result screen ----------------------------------------------
-// Filled in by runDialogAction() when a drill succeeds, consumed by
-// STATE_TRAIN_RESULT to show "<stat> <before> ==> <after>".
-static const char* trainStatName = "";
-static int  trainBefore   = 0;
-static int  trainAfter    = 0;
-static bool trainShowResult = false;
-// When returning from the result screen we must RESUME the conversation rather
-// than restart it (otherwise Pandamon greets you again every drill).
-static bool dialogResume = false;
 
 // ==========================================================================
 //  MenuController implementation (the reusable navigation behavior).
@@ -140,10 +119,8 @@ static void drawDigivolvePage() {
 // ==========================================================================
 //  STATE_MAIN
 // ==========================================================================
-// Composite + push the whole main scene, then reset the incremental-draw
-// caches. Used on state entry AND whenever the static scene changes (e.g. the
-// NPC selection outline turns on/off).
-static void repaintMainScene() {
+static void mainOnEnter() {
+  // Composite background + poops + pet + chrome + bars in one buffered blit.
   display.renderMainScene(pet.getHunger(), pet.getHappiness(), pet.getEnergy(),
                           cat.getX(), cat.getY(), cat.getWidth(), cat.getHeight(),
                           cat.getCurrentFrame(), cat.getCurrentFlip(),
@@ -153,11 +130,6 @@ static void repaintMainScene() {
   lastEnergy    = -1;
   lastPoopCount = pet.getPoopCount();
   lastCatX      = cat.getX();
-}
-
-static void mainOnEnter() {
-  // Composite background + NPC + poops + pet + chrome + bars in one blit.
-  repaintMainScene();
 }
 
 static GameState mainOnUpdate() {
@@ -188,22 +160,15 @@ static GameState mainOnUpdate() {
   cat.update(display);
 
   if (cat.getX() != lastCatX) {
-    // Trail erase happens inside cat.update() (full bounding box). Poops and
-    // the NPC live in the display's static scene layer now, so they are
-    // restored automatically -- nothing to repaint here.
+    // Trail erase happens inside cat.update() (full bounding box). Just keep
+    // poops repainted and track the last X.
     lastCatX = cat.getX();
+    display.drawPoops(pet.getPoopCount());
   }
 
   if (pet.getPoopCount() != lastPoopCount) {
-    if (pet.getPoopCount() > lastPoopCount) {
-      // New poop: drop it where the pet is standing, just behind it.
-      display.addPoopBehind(cat.getX(), cat.getY(),
-                            cat.getWidth(), cat.getHeight(),
-                            cat.getFacingRight());
-    }
-    // The static scene changed (poop added, or cleaned away), so recomposite.
-    // repaintMainScene() also re-syncs the poop count and resets the caches.
-    repaintMainScene();
+    lastPoopCount = pet.getPoopCount();
+    display.drawPoops(pet.getPoopCount());
   }
 
   if (pet.getHunger() != lastHunger || pet.getHappiness() != lastHappiness ||
@@ -214,29 +179,8 @@ static GameState mainOnUpdate() {
     display.drawMainScreen(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
   }
 
-  // ---- NPC targeting -----------------------------------------------------
-  // LEFT or RIGHT toggles the highlight on the Pandamon NPC. (With a single
-  // NPC either direction does the same thing; add an index here when there are
-  // more.) The outline lives in the static scene layer, so the scene has to be
-  // recomposited for it to appear/disappear.
-  if (input.isLeftPressed() || input.isRightPressed()) {
-    npcSelected = !npcSelected;
-    sound.playClick();
-    display.setNpcHighlight(npcSelected);
-    repaintMainScene();
-    return STATE_MAIN;
-  }
-
   if (input.isOkPressed()) {
     sound.playClick();
-    if (npcSelected) {
-      // Talk to Pandamon instead of opening the menu.
-      npcSelected = false;
-      display.setNpcHighlight(false);
-      pendingDialog = &DIALOG_trainer_pandamon;
-      dialogResume = false;              // fresh conversation
-      return STATE_NPC_DIALOG;
-    }
     return STATE_MENU;
   }
   return STATE_MAIN;
@@ -258,11 +202,8 @@ static GameState topMenuOnUpdate() {
     switch (menu.selection) {
       case 0: return STATE_ACTION_MENU;
       case 1: return STATE_DIGIMON_MENU;
-      case 2:                            // Talk -> village elder
-        pendingDialog = &DIALOG_intro_jijimon;
-        return STATE_NPC_DIALOG;
-      case 3: return STATE_SETTINGS;
-      case 4: return STATE_MAIN;   // Exit -> main screen
+      case 2: return STATE_SETTINGS;
+      case 3: return STATE_MAIN;   // Exit -> main screen
     }
   }
   return STATE_MENU;
@@ -348,9 +289,7 @@ static GameState digimonMenuOnUpdate() {
     sound.playClick();
     switch (menu.selection) {
       case 0: return STATE_STATS_PAGE;
-      case 1:                                    // Training -> Pandamon NPC
-        pendingDialog = &DIALOG_trainer_pandamon;
-        return STATE_NPC_DIALOG;
+      case 1: return STATE_TRAINING_MENU;
       case 2: return STATE_DIGIVOLUTION_PAGE;
       case 3: return STATE_MENU;           // Back
     }
@@ -373,6 +312,42 @@ static GameState statsPageOnUpdate() {
     return STATE_DIGIMON_MENU;
   }
   return STATE_STATS_PAGE;
+}
+
+// ==========================================================================
+//  STATE_TRAINING_MENU
+// ==========================================================================
+static void trainingMenuOnEnter() {
+  menu.reset("Training", trainingMenuItems, NUM_TRAINING_ITEMS);
+  menu.redraw();
+}
+
+static GameState trainingMenuOnUpdate() {
+  if (menu.moveOnNavigation()) menu.redraw();
+
+  if (input.isOkPressed()) {
+    sound.playClick();
+    switch (menu.selection) {
+      case 0:                              // Train HP
+        pet.trainHp();
+        sound.playHappyTone();
+        menu.redraw();
+        break;
+      case 1:                              // Train AP
+        pet.trainAp();
+        sound.playHappyTone();
+        menu.redraw();
+        break;
+      case 2:                              // Train DP
+        pet.trainDp();
+        sound.playHappyTone();
+        menu.redraw();
+        break;
+      case 3:                              // Back
+        return STATE_DIGIMON_MENU;
+    }
+  }
+  return STATE_TRAINING_MENU;
 }
 
 // ==========================================================================
@@ -533,146 +508,19 @@ static GameState deadOnUpdate() {
 }
 
 // ==========================================================================
-//  STATE_NPC_DIALOG  (data-driven conversation via DialogManager)
-//
-//  A single FSM state runs an entire branching conversation. onEnter starts
-//  whichever script `pendingDialog` points at; onUpdate navigates options
-//  (LEFT/RIGHT), confirms (OK), and executes any side effect the chosen option
-//  carries. When the conversation ends we return to STATE_MAIN.
-//
-//  Effects are dispatched HERE (not inside DialogManager) because this is where
-//  `pet` and `sound` live. Gated effects -- like training, which costs energy --
-//  are vetoed here and redirect the conversation to the script's refusal node.
-// ==========================================================================
-
-static void drawCurrentDialog() {
-  const DialogNode* n = dlg.node();
-  if (!n) return;
-  const char* labels[MAX_DIALOG_OPTIONS];
-  int c = 0;
-  for (int i = 0; i < MAX_DIALOG_OPTIONS; i++) {
-    if (n->options[i].label) labels[c++] = n->options[i].label;
-  }
-  // n->speaker is the NPC's name (e.g. "Pandamon"); drawDialog renders it as
-  // the highlighted header line above the body text.
-  display.drawDialog(n->speaker, n->text, labels, c, dlg.selectedOption());
-}
-
-// Run the effect queued by the last confirm(). Returns true if the effect was
-// REFUSED (so the caller can redirect to the script's refusal node). On a
-// successful drill it records the before/after values and raises
-// trainShowResult so the FSM can show the summary screen.
-static bool runDialogAction(DialogAction action) {
-  switch (action) {
-    case DLG_TRAIN_HP:
-    case DLG_TRAIN_AP:
-    case DLG_TRAIN_DP:
-      // Training costs energy; refuse when the pet is asleep or too drained.
-      if (!pet.canTrain()) {
-        sound.playSadTone();
-        return true;                      // refused
-      }
-      if (action == DLG_TRAIN_HP) {
-        trainStatName = "HP";
-        trainBefore = pet.getMaxHp();
-        pet.trainHp();
-        trainAfter = pet.getMaxHp();
-      } else if (action == DLG_TRAIN_AP) {
-        trainStatName = "AP";
-        trainBefore = pet.getAp();
-        pet.trainAp();
-        trainAfter = pet.getAp();
-      } else {
-        trainStatName = "DP";
-        trainBefore = pet.getDp();
-        pet.trainDp();
-        trainAfter = pet.getDp();
-      }
-      sound.playHappyTone();
-      trainShowResult = true;
-      return false;
-    case DLG_NONE:
-    default:
-      return false;
-  }
-}
-
-static void npcDialogOnEnter() {
-  // Resume rather than restart when coming back from the result screen, so the
-  // conversation continues at the "Another round?" node.
-  if (dialogResume) {
-    dialogResume = false;
-  } else {
-    dlg.start(pendingDialog);
-  }
-  drawCurrentDialog();
-}
-
-static GameState npcDialogOnUpdate() {
-  if (!dlg.isActive()) return STATE_MAIN;
-
-  if (input.isLeftPressed()) {
-    sound.playClick();
-    dlg.moveSelection(-1);
-    drawCurrentDialog();
-  } else if (input.isRightPressed()) {
-    sound.playClick();
-    dlg.moveSelection(+1);
-    drawCurrentDialog();
-  } else if (input.isOkPressed()) {
-    sound.playClick();
-    bool stillActive = dlg.confirm();
-    bool refused = runDialogAction(dlg.consumeAction());
-
-    if (refused && dlg.jumpToRefused()) {
-      // Show the script's "too tired" line instead of the success line.
-      drawCurrentDialog();
-      return STATE_NPC_DIALOG;
-    }
-    if (trainShowResult) {
-      // Drill succeeded: show the before/after summary, then come back here.
-      trainShowResult = false;
-      dialogResume = true;
-      return STATE_TRAIN_RESULT;
-    }
-    if (!stillActive) {
-      return STATE_MAIN;                 // conversation finished
-    }
-    drawCurrentDialog();
-  }
-  return STATE_NPC_DIALOG;
-}
-
-// ==========================================================================
-//  STATE_TRAIN_RESULT  (post-drill summary: stat before ==> after)
-// ==========================================================================
-static void trainResultOnEnter() {
-  display.drawTrainResult(trainStatName, trainBefore, trainAfter, pet.getEnergy());
-}
-
-static GameState trainResultOnUpdate() {
-  if (input.isOkPressed()) {
-    sound.playClick();
-    return STATE_NPC_DIALOG;            // back to Pandamon ("Another round?")
-  }
-  return STATE_TRAIN_RESULT;
-}
-
-// ==========================================================================
 //  THE STATE TABLE. Indexed by GameState; order MUST match the enum.
 // ==========================================================================
 static const StateHandler kStates[STATE_COUNT] = {
-  /* STATE_MAIN              @cat:system */ { mainOnEnter,        mainOnUpdate },
-  /* STATE_MENU              @cat:menu   */ { topMenuOnEnter,     topMenuOnUpdate },
-  /* STATE_ACTION_MENU       @cat:menu   */ { actionMenuOnEnter,  actionMenuOnUpdate },
-  /* STATE_DIGIMON_MENU      @cat:menu   */ { digimonMenuOnEnter, digimonMenuOnUpdate },
-  /* STATE_STATS_PAGE        @cat:page   */ { statsPageOnEnter,   statsPageOnUpdate },
-  /* STATE_DIGIVOLUTION_PAGE @cat:page   */ { digivolutionOnEnter, digivolutionOnUpdate },
-  /* STATE_SETTINGS          @cat:menu   */ { settingsOnEnter,    settingsOnUpdate },
-  /* STATE_DEAD              @cat:system */ { deadOnEnter,        deadOnUpdate },
-  /* STATE_MINIGAME          @cat:action */ { minigameOnEnter,    minigameOnUpdate },
-  /* STATE_NPC_DIALOG        @cat:dialog */ { npcDialogOnEnter,   npcDialogOnUpdate },
-  /* STATE_TRAIN_RESULT      @cat:page   */ { trainResultOnEnter, trainResultOnUpdate },
+  /* STATE_MAIN               */ { mainOnEnter,        mainOnUpdate },
+  /* STATE_MENU               */ { topMenuOnEnter,     topMenuOnUpdate },
+  /* STATE_ACTION_MENU        */ { actionMenuOnEnter,  actionMenuOnUpdate },
+  /* STATE_DIGIMON_MENU       */ { digimonMenuOnEnter, digimonMenuOnUpdate },
+  /* STATE_STATS_PAGE         */ { statsPageOnEnter,   statsPageOnUpdate },
+  /* STATE_DIGIVOLUTION_PAGE  */ { digivolutionOnEnter, digivolutionOnUpdate },
+  /* STATE_TRAINING_MENU      */ { trainingMenuOnEnter, trainingMenuOnUpdate },
+  /* STATE_SETTINGS           */ { settingsOnEnter,    settingsOnUpdate },
+  /* STATE_DEAD               */ { deadOnEnter,        deadOnUpdate },
+  /* STATE_MINIGAME           */ { minigameOnEnter,    minigameOnUpdate },
 };
 
 // ==========================================================================
@@ -698,12 +546,12 @@ void gsmSetup() {
 
   cat.begin();
 
+  display.forceFullRedraw(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
   sound.playHappyTone();
 
-  // Enter STATE_MAIN through changeState() so its onEnter() composites the FULL
-  // scene (forest + NPC + pet + chrome). forceFullRedraw() alone would miss the
-  // NPC, which lives in the static scene layer.
-  changeState(STATE_MAIN);
+  currentState = STATE_MAIN;   // no onEnter here to preserve original startup
+                               // paint (forceFullRedraw above), matching the
+                               // legacy behavior exactly.
 }
 
 void gsmLoop() {
@@ -712,11 +560,7 @@ void gsmLoop() {
     lastInputTime = millis();
     if (screensaverActive) {
       screensaverActive = false;
-      // Re-enter the active state so IT repaints itself. (The old
-      // exitScreensaver() always painted main-screen chrome, which was wrong
-      // when the screensaver kicked in over a menu, and it also skipped the
-      // NPC scene layer.)
-      changeState(currentState);
+      display.exitScreensaver(pet.getHunger(), pet.getHappiness(), pet.getEnergy());
     }
   }
 

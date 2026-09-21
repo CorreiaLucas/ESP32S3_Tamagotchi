@@ -6,12 +6,20 @@
 <title>Tamagotchi FSM Viewer</title>
 <style>
   :root {
-    --bg: #14161c; --panel: #1c2029; --panel2: #232834; --line: #333b4a;
-    --text: #d7dce5; --muted: #8a93a6; --accent: #57b8ff; --accent2: #ffd166;
-    --edge: #6b7688; --edge-hi: #57b8ff;
-    /* category colors */
-    --cat-menu: #3a6ea5; --cat-dialog: #8e5db0; --cat-action: #b0603a;
-    --cat-page: #4a5568; --cat-system: #2e7d5b;
+    --bg: #14161c;
+    --panel: #1c2029;
+    --panel2: #232834;
+    --line: #333b4a;
+    --text: #d7dce5;
+    --muted: #8a93a6;
+    --accent: #57b8ff;
+    --accent2: #ffd166;
+    --node: #2b3242;
+    --node-border: #46536b;
+    --node-main: #2e5d3a;
+    --node-dead: #5d2e2e;
+    --edge: #6b7688;
+    --edge-hi: #57b8ff;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
@@ -21,15 +29,20 @@
   svg { width: 100%; height: 100%; display: block; cursor: grab; }
   svg.panning { cursor: grabbing; }
 
-  #side { width: 340px; background: var(--panel); border-left: 1px solid var(--line);
-    padding: 16px; overflow-y: auto; font-size: 13px; }
+  #side {
+    width: 320px; background: var(--panel); border-left: 1px solid var(--line);
+    padding: 16px; overflow-y: auto; font-size: 13px;
+  }
   #side h1 { font-size: 15px; margin: 0 0 4px; }
-  #side .sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+  #side .sub { color: var(--muted); font-size: 12px; margin-bottom: 14px; }
   .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px;
     padding: 12px; margin-bottom: 12px; }
   .card h2 { font-size: 13px; margin: 0 0 8px; color: var(--accent); }
   .kv { display: flex; justify-content: space-between; gap: 8px; padding: 3px 0; }
-  .kv .k { color: var(--muted); } .kv .v { font-family: ui-monospace, monospace; text-align: right; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-family: ui-monospace, Menlo, Consolas, monospace; text-align: right; }
+  .pill { display: inline-block; background: var(--node); border: 1px solid var(--node-border);
+    border-radius: 999px; padding: 2px 8px; font-size: 11px; margin: 2px 4px 2px 0; }
   .empty { color: var(--muted); font-style: italic; }
   ul.tr { list-style: none; margin: 0; padding: 0; }
   ul.tr li { padding: 6px 0; border-top: 1px solid var(--line); }
@@ -37,26 +50,21 @@
   ul.tr .to { color: var(--accent2); font-family: ui-monospace, monospace; }
   ul.tr .trig { color: var(--muted); font-size: 12px; }
 
-  #toolbar { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px; align-items: center;
-    background: rgba(28,32,41,.92); border: 1px solid var(--line); border-radius: 8px; padding: 6px; flex-wrap: wrap; }
-  #toolbar button, #toolbar label { background: #2b3242; color: var(--text);
-    border: 1px solid #46536b; border-radius: 6px; padding: 6px 10px; font-size: 12px; cursor: pointer; }
+  #toolbar { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px;
+    background: rgba(28,32,41,.9); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+  #toolbar button, #toolbar label { background: var(--node); color: var(--text);
+    border: 1px solid var(--node-border); border-radius: 6px; padding: 6px 10px;
+    font-size: 12px; cursor: pointer; }
   #toolbar button:hover { border-color: var(--accent); }
-  .tabs { display: flex; gap: 4px; }
-  .tab { padding: 6px 12px; border: 1px solid #46536b; border-radius: 6px; cursor: pointer; font-size: 12px; }
-  .tab.active { background: var(--accent); color: #08121c; border-color: var(--accent); font-weight: 600; }
-
-  #legend { position: absolute; bottom: 12px; right: 12px; background: rgba(28,32,41,.92);
-    border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; font-size: 11px; }
-  #legend .row { display: flex; align-items: center; gap: 6px; padding: 2px 0; }
-  #legend .sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #0006; }
   #hint { position: absolute; bottom: 12px; left: 12px; color: var(--muted); font-size: 11px; }
 
-  .node rect { stroke: #0006; stroke-width: 1.5; }
+  .node rect { fill: var(--node); stroke: var(--node-border); stroke-width: 1.5; rx: 8; }
+  .node.is-main rect { fill: var(--node-main); }
+  .node.is-dead rect { fill: var(--node-dead); }
   .node.selected rect { stroke: var(--accent); stroke-width: 2.5; }
   .node.dim { opacity: .28; }
-  .node text { fill: #fff; font-size: 12px; font-weight: 600; pointer-events: none; }
-  .node text.meta { fill: #dfe6f2cc; font-size: 9px; font-weight: 400; }
+  .node text { fill: var(--text); font-size: 12px; font-weight: 600; pointer-events: none; }
+  .node text.meta { fill: var(--muted); font-size: 9px; font-weight: 400; }
   .node { cursor: pointer; }
 
   path.edge { fill: none; stroke: var(--edge); stroke-width: 1.6; marker-end: url(#arrow); }
@@ -65,104 +73,60 @@
   text.edgelabel { fill: var(--muted); font-size: 10px; }
   text.edgelabel.hi { fill: var(--accent); }
   .edgelabel.dim { opacity: .12; }
-
-  .field { margin: 6px 0; }
-  .field label { display: block; color: var(--muted); font-size: 11px; margin-bottom: 3px; }
-  .field input, .field select { width: 100%; background: #14161c; color: var(--text);
-    border: 1px solid var(--line); border-radius: 6px; padding: 6px; font-size: 13px; }
-  .cmd { background: #0e1014; border: 1px solid var(--line); border-radius: 6px; padding: 8px;
-    font-family: ui-monospace, monospace; font-size: 11px; white-space: pre-wrap; word-break: break-all;
-    color: #b7e3a6; margin-top: 6px; }
-  .btn-primary { background: var(--accent); color: #08121c; border: none; border-radius: 6px;
-    padding: 8px 12px; font-size: 12px; font-weight: 600; cursor: pointer; width: 100%; margin-top: 6px; }
-  .note { color: var(--muted); font-size: 11px; margin-top: 6px; line-height: 1.4; }
+  #filerow { padding: 10px; text-align: center; color: var(--muted); }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="graph">
     <div id="toolbar">
-      <div class="tabs">
-        <div class="tab active" data-view="fsm">FSM</div>
-        <div class="tab" data-view="dialogs">Dialogs</div>
-      </div>
       <button id="btnReset">Reset view</button>
       <button id="btnRelayout">Re-layout</button>
-      <select id="scriptPick" style="display:none; background:#2b3242; color:var(--text);
-        border:1px solid #46536b; border-radius:6px; padding:6px; font-size:12px;"></select>
-      <label>Load JSON <input id="file" type="file" accept="application/json" style="display:none"></label>
+      <label>Load fsm.json <input id="file" type="file" accept="application/json" style="display:none"></label>
     </div>
     <svg id="svg">
       <defs>
-        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L8,3 L0,6 Z" fill="#6b7688"/></marker>
-        <marker id="arrowHi" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L8,3 L0,6 Z" fill="#57b8ff"/></marker>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3"
+                orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#6b7688"/>
+        </marker>
+        <marker id="arrowHi" markerWidth="10" markerHeight="10" refX="8" refY="3"
+                orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L8,3 L0,6 Z" fill="#57b8ff"/>
+        </marker>
       </defs>
       <g id="viewport">
-        <g id="edges"></g><g id="edgelabels"></g><g id="nodes"></g>
+        <g id="edges"></g>
+        <g id="edgelabels"></g>
+        <g id="nodes"></g>
       </g>
     </svg>
-    <div id="legend"></div>
-    <div id="hint">scroll = zoom · drag bg = pan · drag node = move · click = highlight</div>
+    <div id="hint">Scroll = zoom · drag background = pan · drag node = move · click node/edge = highlight</div>
   </div>
   <div id="side">
     <h1>Tamagotchi FSM</h1>
     <div class="sub" id="srcline">no data loaded</div>
-    <div id="detail"><div class="card"><span class="empty">Click a node to inspect it.</span></div></div>
-
-    <div class="card" id="editcard">
-      <h2>Edit (Tier 2 — safe write-back)</h2>
-      <div class="note">The browser never edits your source. It builds a
-        <b>python tools/fsm_graph.py</b> command you run in a terminal. Every apply
-        makes a <code>.bak</code> backup and prints a diff. New states get stub
-        handlers inside <code>FSM-GEN</code> markers — your hand-written logic is
-        never touched.</div>
-
-      <div class="field"><label>Add state — name</label>
-        <input id="newName" placeholder="STATE_SHOP" /></div>
-      <div class="field"><label>category</label>
-        <select id="newCat">
-          <option>menu</option><option>dialog</option><option>action</option>
-          <option>page</option><option>system</option>
-        </select></div>
-      <button class="btn-primary" id="btnAdd">Generate add-state command</button>
-      <div class="cmd" id="addCmd" style="display:none"></div>
-
-      <div class="field" style="margin-top:14px"><label>Set category — state</label>
-        <select id="catState"></select></div>
-      <div class="field"><label>new category</label>
-        <select id="catValue">
-          <option>menu</option><option>dialog</option><option>action</option>
-          <option>page</option><option>system</option>
-        </select></div>
-      <button class="btn-primary" id="btnCat">Generate set-category command</button>
-      <div class="cmd" id="catCmd" style="display:none"></div>
+    <div id="detail">
+      <div class="card"><span class="empty">Click a state node to inspect it, or load a fsm.json.</span></div>
     </div>
   </div>
 </div>
 
 <script>
 // ==========================================================================
-//  Standalone FSM + Dialogs viewer (v2).
-//  - FSM tab: states colored by category, edges = transitions.
-//  - Dialogs tab: dialog nodes + option edges (from dialogs.json).
-//  - Edit panel: emits `fsm_graph.py` commands (never writes files directly).
+//  Standalone FSM viewer. Loads fsm.json (produced by tools/fsm_graph.py) and
+//  renders an interactive graph. No external dependencies.
+//
+//  Layout: BFS "levels" from STATE_MAIN give an x-column per depth; nodes in a
+//  level are stacked vertically. Nodes are draggable; edges re-route live.
 // ==========================================================================
 const SVGNS = "http://www.w3.org/2000/svg";
-const NODE_W = 172, NODE_H = 46, LEVEL_DX = 265, NODE_DY = 74;
+const NODE_W = 168, NODE_H = 44, LEVEL_DX = 260, NODE_DY = 70;
 
-const CAT_COLORS = {
-  menu: "var(--cat-menu)", dialog: "var(--cat-dialog)", action: "var(--cat-action)",
-  page: "var(--cat-page)", system: "var(--cat-system)"
-};
-const CAT_LABELS = { menu: "Menu", dialog: "Dialog", action: "Action (minigame/combat)",
-  page: "Info page", system: "System" };
-
-let fsmData = null, dialogData = null;
-let currentView = "fsm";
-let model = null;      // normalized {nodes:[{id,label,meta,category}], edges:[{from,to,label}]}
-let pos = {}, selected = null, view = { x: 40, y: 40, k: 1 };
+let graph = null;      // {states, transitions, source}
+let pos = {};          // stateId -> {x, y}
+let selected = null;
+let view = { x: 40, y: 40, k: 1 };
 
 const svg = document.getElementById("svg");
 const viewport = document.getElementById("viewport");
@@ -170,276 +134,242 @@ const gEdges = document.getElementById("edges");
 const gEdgeLabels = document.getElementById("edgelabels");
 const gNodes = document.getElementById("nodes");
 
-// ---- Load both JSON files if present ----
-Promise.allSettled([
-  fetch("fsm.json").then(r => r.ok ? r.json() : Promise.reject()),
-  fetch("dialogs.json").then(r => r.ok ? r.json() : Promise.reject())
-]).then(([f, d]) => {
-  if (f.status === "fulfilled") fsmData = f.value;
-  if (d.status === "fulfilled") dialogData = d.value;
-  if (!fsmData) {
+// ---- Try to auto-load fsm.json sitting next to this HTML file ----
+fetch("fsm.json").then(r => r.ok ? r.json() : Promise.reject())
+  .then(data => { setGraph(data); })
+  .catch(() => {
     document.getElementById("srcline").textContent =
-      "fsm.json not found — use “Load JSON”. (Run: python tools/fsm_graph.py)";
-    return;
-  }
-  buildView("fsm");
-});
+      "fsm.json not found next to this file — use “Load fsm.json”. (Run: python tools/fsm_graph.py)";
+  });
 
 document.getElementById("file").addEventListener("change", e => {
-  const f = e.target.files[0]; if (!f) return;
+  const f = e.target.files[0];
+  if (!f) return;
   const rd = new FileReader();
-  rd.onload = () => {
-    try {
-      const j = JSON.parse(rd.result);
-      if (j.states) { fsmData = j; buildView("fsm"); }
-      else if (j.scripts) { dialogData = j; buildView("dialogs"); }
-      else alert("Unrecognized JSON (need FSM 'states' or dialogs 'scripts').");
-    } catch (err) { alert("Bad JSON: " + err); }
-  };
+  rd.onload = () => { try { setGraph(JSON.parse(rd.result)); } catch (err) { alert("Bad JSON: " + err); } };
   rd.readAsText(f);
 });
 
-// ---- Tabs ----
-document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => {
-  document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-  t.classList.add("active");
-  buildView(t.dataset.view);
-}));
+function setGraph(data) {
+  graph = data;
+  document.getElementById("srcline").textContent =
+    (data.source || "FSM") + " · " + data.states.length + " states · " + data.transitions.length + " transitions";
+  layout();
+  render();
+  resetView();
+}
 
-// ---- Script picker (Dialogs tab, when there are several scripts) ----
-document.getElementById("scriptPick").addEventListener("change", () => buildView("dialogs"));
+// ---- BFS-level layout from STATE_MAIN (fallback: first state) ----
+function layout() {
+  const ids = graph.states.map(s => s.id);
+  const root = ids.includes("STATE_MAIN") ? "STATE_MAIN" : ids[0];
+  const adj = {};
+  ids.forEach(id => adj[id] = []);
+  graph.transitions.forEach(t => { if (adj[t.from]) adj[t.from].push(t.to); });
 
-// ---- Normalize either dataset into a common {nodes, edges} model ----
-function buildView(viewName) {
-  currentView = viewName;
-  document.getElementById("editcard").style.display = viewName === "fsm" ? "" : "none";
-
-  if (viewName === "fsm") {
-    if (!fsmData) return;
-    document.getElementById("scriptPick").style.display = "none";
-    model = {
-      nodes: fsmData.states.map(s => ({
-        id: s.id, label: s.id.replace(/^STATE_/, ""),
-        meta: (s.onUpdate || "?") + "()", category: s.category || "page"
-      })),
-      edges: fsmData.transitions.map(t => ({ from: t.from, to: t.to, label: t.trigger || "" }))
-    };
-    document.getElementById("srcline").textContent =
-      (fsmData.source || "FSM") + " · " + model.nodes.length + " states · " + model.edges.length + " transitions";
-    populateCatState();
-  } else {
-    const pick = document.getElementById("scriptPick");
-    if (!dialogData || !dialogData.scripts.length) {
-      pick.style.display = "none";
-      model = { nodes: [], edges: [] };
-      document.getElementById("srcline").textContent =
-        "dialogs.json not found — run: python tools/fsm_graph.py dialogs";
-    } else {
-      // Populate the script picker once per dataset, then render the chosen one.
-      if (pick.dataset.filled !== dialogData.source) {
-        pick.innerHTML = dialogData.scripts.map((s, i) => `<option value="${i}">${s.name}</option>`).join("");
-        pick.dataset.filled = dialogData.source;
-        pick.value = "0";
-      }
-      pick.style.display = dialogData.scripts.length > 1 ? "" : "none";
-      const s = dialogData.scripts[+pick.value] || dialogData.scripts[0];
-
-      model = {
-        nodes: s.nodes.map(n => ({
-          id: String(n.index),
-          label: (n.id || ("node" + n.index))
-                 + (n.index === s.startNode ? "  ▶" : "")
-                 + (n.index === s.refusedNode ? "  ⛔" : ""),
-          meta: (n.speaker || "pet") + ": " + (n.text || "").slice(0, 22) + "…",
-          // Colour the refusal node differently so gated branches stand out.
-          category: n.index === s.refusedNode ? "action" : "dialog"
-        })),
-        edges: s.edges.map(e => ({
-          from: String(e.from),
-          to: e.end ? "__END__" : String(e.to),
-          // Show the side effect next to the choice label when there is one.
-          label: (e.label || "") + (e.action && e.action !== "DLG_NONE"
-                   ? "  ⚡" + e.action.replace(/^DLG_/, "") : "")
-        }))
-      };
-      if (model.edges.some(e => e.to === "__END__")) {
-        model.nodes.push({ id: "__END__", label: "END", meta: "", category: "system" });
-      }
-      document.getElementById("srcline").textContent =
-        (dialogData.source || "Dialogs") + " · script “" + s.name + "” · "
-        + s.nodes.length + " nodes · ▶ start, ⛔ refused, ⚡ effect";
+  const level = {};
+  const q = [root];
+  level[root] = 0;
+  while (q.length) {
+    const cur = q.shift();
+    for (const nx of adj[cur]) {
+      if (level[nx] === undefined) { level[nx] = level[cur] + 1; q.push(nx); }
     }
   }
-  renderLegend();
-  layout(); render(); resetView();
-}
-
-function renderLegend() {
-  const cats = currentView === "fsm"
-    ? ["menu", "dialog", "action", "page", "system"] : ["dialog", "system"];
-  document.getElementById("legend").innerHTML = cats.map(c =>
-    `<div class="row"><span class="sw" style="background:${CAT_COLORS[c]}"></span>${CAT_LABELS[c]}</div>`).join("");
-}
-
-// ---- BFS-level layout from the first node ----
-function layout() {
-  const ids = model.nodes.map(n => n.id);
-  if (!ids.length) { pos = {}; return; }
-  const root = ids.includes("STATE_MAIN") ? "STATE_MAIN" : ids[0];
-  const adj = {}; ids.forEach(id => adj[id] = []);
-  model.edges.forEach(e => { if (adj[e.from]) adj[e.from].push(e.to); });
-
-  const level = {}; const q = [root]; level[root] = 0;
-  while (q.length) { const c = q.shift();
-    for (const nx of adj[c]) if (level[nx] === undefined) { level[nx] = level[c] + 1; q.push(nx); } }
+  // Unreached states get placed in a trailing column.
   let maxLvl = Math.max(0, ...Object.values(level));
   ids.forEach(id => { if (level[id] === undefined) level[id] = maxLvl + 1; });
 
+  // Group by level, stack vertically.
   const byLevel = {};
   ids.forEach(id => { (byLevel[level[id]] ||= []).push(id); });
   pos = {};
   Object.keys(byLevel).sort((a, b) => a - b).forEach(lvl => {
-    byLevel[lvl].forEach((id, i) => {
-      pos[id] = { x: lvl * LEVEL_DX, y: i * NODE_DY - (byLevel[lvl].length - 1) * NODE_DY / 2 };
+    const col = byLevel[lvl];
+    col.forEach((id, i) => {
+      pos[id] = {
+        x: lvl * LEVEL_DX,
+        y: i * NODE_DY - (col.length - 1) * NODE_DY / 2
+      };
     });
   });
 }
 
-function nodeById(id) { return model.nodes.find(n => n.id === id); }
-function nodeCenter(id) { const p = pos[id]; return { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2 }; }
+function stateMeta(id) { return graph.states.find(s => s.id === id); }
 
-function edgePath(from, to) {
-  if (from === to) {
-    const p = pos[from]; const x = p.x + NODE_W / 2, y = p.y;
-    return `M ${x-18} ${y} C ${x-40} ${y-46}, ${x+40} ${y-46}, ${x+18} ${y}`;
-  }
-  const a = nodeCenter(from), b = nodeCenter(to);
-  const dx = b.x - a.x, dy = b.y - a.y, ang = Math.atan2(dy, dx);
-  const mx = (a.x + b.x) / 2 + (dy > 0 ? 18 : -18), my = (a.y + b.y) / 2;
-  const ax = a.x + Math.cos(ang) * (NODE_W/2 + 2), ay = a.y + Math.sin(ang) * (NODE_H/2 + 2);
-  const bx = b.x - Math.cos(ang) * (NODE_W/2 + 8), by = b.y - Math.sin(ang) * (NODE_H/2 + 8);
-  return `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
-}
-
+// ---- Rendering ----
 function render() {
   gEdges.innerHTML = ""; gEdgeLabels.innerHTML = ""; gNodes.innerHTML = "";
-  model.edges.forEach((e, idx) => {
+
+  // Edges first (under nodes).
+  graph.transitions.forEach((t, idx) => {
     const p = document.createElementNS(SVGNS, "path");
-    p.setAttribute("class", "edge"); p.dataset.idx = idx; gEdges.appendChild(p);
+    p.setAttribute("class", "edge");
+    p.dataset.idx = idx;
+    gEdges.appendChild(p);
+
     const lbl = document.createElementNS(SVGNS, "text");
-    lbl.setAttribute("class", "edgelabel"); lbl.dataset.idx = idx; lbl.textContent = e.label; gEdgeLabels.appendChild(lbl);
+    lbl.setAttribute("class", "edgelabel");
+    lbl.dataset.idx = idx;
+    lbl.textContent = t.trigger || "";
+    gEdgeLabels.appendChild(lbl);
   });
-  model.nodes.forEach(s => {
+
+  graph.states.forEach(s => {
     const g = document.createElementNS(SVGNS, "g");
-    g.setAttribute("class", "node"); g.dataset.id = s.id;
+    g.setAttribute("class", "node" +
+      (s.id === "STATE_MAIN" ? " is-main" : "") +
+      (s.id === "STATE_DEAD" ? " is-dead" : ""));
+    g.dataset.id = s.id;
+
     const rect = document.createElementNS(SVGNS, "rect");
-    rect.setAttribute("width", NODE_W); rect.setAttribute("height", NODE_H); rect.setAttribute("rx", 8);
-    rect.setAttribute("fill", CAT_COLORS[s.category] || CAT_COLORS.page);
+    rect.setAttribute("width", NODE_W); rect.setAttribute("height", NODE_H);
+    rect.setAttribute("rx", 8);
     g.appendChild(rect);
+
     const label = document.createElementNS(SVGNS, "text");
-    label.setAttribute("x", NODE_W/2); label.setAttribute("y", 20); label.setAttribute("text-anchor", "middle");
-    label.textContent = s.label; g.appendChild(label);
+    label.setAttribute("x", NODE_W / 2); label.setAttribute("y", 19);
+    label.setAttribute("text-anchor", "middle");
+    label.textContent = s.id.replace(/^STATE_/, "");
+    g.appendChild(label);
+
     const meta = document.createElementNS(SVGNS, "text");
-    meta.setAttribute("class", "meta"); meta.setAttribute("x", NODE_W/2); meta.setAttribute("y", 34);
-    meta.setAttribute("text-anchor", "middle"); meta.textContent = s.meta; g.appendChild(meta);
+    meta.setAttribute("class", "meta");
+    meta.setAttribute("x", NODE_W / 2); meta.setAttribute("y", 33);
+    meta.setAttribute("text-anchor", "middle");
+    meta.textContent = (s.onUpdate || "?") + "()";
+    g.appendChild(meta);
+
     g.addEventListener("mousedown", startNodeDrag);
     g.addEventListener("click", ev => { ev.stopPropagation(); select(s.id); });
     gNodes.appendChild(g);
   });
+
   updatePositions();
+}
+
+function nodeCenter(id) {
+  const p = pos[id];
+  return { x: p.x + NODE_W / 2, y: p.y + NODE_H / 2 };
+}
+
+// Route an edge between two node boxes; self-loops draw a small arc on top.
+function edgePath(from, to) {
+  if (from === to) {
+    const p = pos[from];
+    const x = p.x + NODE_W / 2, y = p.y;
+    return `M ${x - 18} ${y} C ${x - 40} ${y - 46}, ${x + 40} ${y - 46}, ${x + 18} ${y}`;
+  }
+  const a = nodeCenter(from), b = nodeCenter(to);
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const mx = (a.x + b.x) / 2 + (dy > 0 ? 18 : -18);
+  const my = (a.y + b.y) / 2;
+  // Trim endpoints to box edges (approx: use center offset by half sizes).
+  const ang = Math.atan2(dy, dx);
+  const ax = a.x + Math.cos(ang) * (NODE_W / 2 + 2);
+  const ay = a.y + Math.sin(ang) * (NODE_H / 2 + 2);
+  const bx = b.x - Math.cos(ang) * (NODE_W / 2 + 8);
+  const by = b.y - Math.sin(ang) * (NODE_H / 2 + 8);
+  return `M ${ax} ${ay} Q ${mx} ${my} ${bx} ${by}`;
 }
 
 function updatePositions() {
   gNodes.querySelectorAll(".node").forEach(g => {
-    const p = pos[g.dataset.id]; g.setAttribute("transform", `translate(${p.x},${p.y})`); });
+    const p = pos[g.dataset.id];
+    g.setAttribute("transform", `translate(${p.x},${p.y})`);
+  });
   gEdges.querySelectorAll(".edge").forEach(p => {
-    const e = model.edges[+p.dataset.idx]; p.setAttribute("d", edgePath(e.from, e.to)); });
+    const t = graph.transitions[+p.dataset.idx];
+    p.setAttribute("d", edgePath(t.from, t.to));
+  });
   gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => {
-    const e = model.edges[+l.dataset.idx];
-    if (e.from === e.to) { const p = pos[e.from];
-      l.setAttribute("x", p.x + NODE_W/2); l.setAttribute("y", p.y - 40); l.setAttribute("text-anchor", "middle");
-    } else { const a = nodeCenter(e.from), b = nodeCenter(e.to);
-      l.setAttribute("x", (a.x+b.x)/2 + 6); l.setAttribute("y", (a.y+b.y)/2 - 4); l.setAttribute("text-anchor", "start"); }
+    const t = graph.transitions[+l.dataset.idx];
+    if (t.from === t.to) {
+      const p = pos[t.from];
+      l.setAttribute("x", p.x + NODE_W / 2); l.setAttribute("y", p.y - 40);
+      l.setAttribute("text-anchor", "middle");
+    } else {
+      const a = nodeCenter(t.from), b = nodeCenter(t.to);
+      l.setAttribute("x", (a.x + b.x) / 2 + 6);
+      l.setAttribute("y", (a.y + b.y) / 2 - 4);
+      l.setAttribute("text-anchor", "start");
+    }
   });
   applyViewTransform();
 }
 
+// ---- Selection / highlight ----
 function select(id) {
   selected = id;
   const related = new Set([id]);
-  model.edges.forEach(e => { if (e.from === id || e.to === id) { related.add(e.from); related.add(e.to); } });
+  graph.transitions.forEach(t => {
+    if (t.from === id || t.to === id) { related.add(t.from); related.add(t.to); }
+  });
+
   gNodes.querySelectorAll(".node").forEach(g => {
     g.classList.toggle("selected", g.dataset.id === id);
-    g.classList.toggle("dim", !related.has(g.dataset.id)); });
+    g.classList.toggle("dim", !related.has(g.dataset.id));
+  });
   gEdges.querySelectorAll(".edge").forEach(p => {
-    const e = model.edges[+p.dataset.idx]; const hot = e.from === id || e.to === id;
-    p.classList.toggle("hi", hot); p.classList.toggle("dim", !hot); });
+    const t = graph.transitions[+p.dataset.idx];
+    const hot = t.from === id || t.to === id;
+    p.classList.toggle("hi", hot);
+    p.classList.toggle("dim", !hot);
+  });
   gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => {
-    const e = model.edges[+l.dataset.idx]; const hot = e.from === id || e.to === id;
-    l.classList.toggle("hi", hot); l.classList.toggle("dim", !hot); });
+    const t = graph.transitions[+l.dataset.idx];
+    const hot = t.from === id || t.to === id;
+    l.classList.toggle("hi", hot);
+    l.classList.toggle("dim", !hot);
+  });
+
   renderDetail(id);
 }
 
+function clearSelection() {
+  selected = null;
+  gNodes.querySelectorAll(".node").forEach(g => g.classList.remove("selected", "dim"));
+  gEdges.querySelectorAll(".edge").forEach(p => p.classList.remove("hi", "dim"));
+  gEdgeLabels.querySelectorAll(".edgelabel").forEach(l => l.classList.remove("hi", "dim"));
+}
+
 function renderDetail(id) {
-  const n = nodeById(id);
-  const outgoing = model.edges.filter(e => e.from === id);
-  const incoming = model.edges.filter(e => e.to === id);
-  const nice = x => x.replace(/^STATE_/, "");
+  const s = stateMeta(id);
+  const outgoing = graph.transitions.filter(t => t.from === id);
+  const incoming = graph.transitions.filter(t => t.to === id);
+  const detail = document.getElementById("detail");
+
   const trList = (arr, dir) => arr.length ? `<ul class="tr">` + arr.map(t => `
-      <li><span class="to">${dir === "out" ? "→ " + nice(t.to) : "← " + nice(t.from)}</span>
-      <div class="trig">${escapeHtml(t.label || "(always)")}</div></li>`).join("") + `</ul>` : `<span class="empty">none</span>`;
-  let head = `<div class="card"><h2>${n.label}</h2>
-      <div class="kv"><span class="k">category</span><span class="v">${n.category}</span></div>`;
-  if (currentView === "fsm") {
-    const s = fsmData.states.find(x => x.id === id);
-    head += `<div class="kv"><span class="k">onEnter</span><span class="v">${s.onEnter||"—"}${s.enterLine?" :"+s.enterLine:""}</span></div>
-             <div class="kv"><span class="k">onUpdate</span><span class="v">${s.onUpdate||"—"}${s.updateLine?" :"+s.updateLine:""}</span></div>`;
-  } else { head += `<div class="kv"><span class="k">detail</span><span class="v">${escapeHtml(n.meta)}</span></div>`; }
-  head += `</div>`;
-  document.getElementById("detail").innerHTML = head +
-    `<div class="card"><h2>Outgoing (${outgoing.length})</h2>${trList(outgoing, "out")}</div>` +
-    `<div class="card"><h2>Incoming (${incoming.length})</h2>${trList(incoming, "in")}</div>`;
+      <li><span class="to">${dir === "out" ? "→ " + t.to.replace(/^STATE_/, "") : "← " + t.from.replace(/^STATE_/, "")}</span>
+      <div class="trig">${escapeHtml(t.trigger || "(always)")} · via ${t.via}</div></li>`).join("") + `</ul>`
+    : `<span class="empty">none</span>`;
+
+  detail.innerHTML = `
+    <div class="card">
+      <h2>${id}</h2>
+      <div class="kv"><span class="k">onEnter</span><span class="v">${s.onEnter || "—"}${s.enterLine ? " :" + s.enterLine : ""}</span></div>
+      <div class="kv"><span class="k">onUpdate</span><span class="v">${s.onUpdate || "—"}${s.updateLine ? " :" + s.updateLine : ""}</span></div>
+    </div>
+    <div class="card"><h2>Outgoing (${outgoing.length})</h2>${trList(outgoing, "out")}</div>
+    <div class="card"><h2>Incoming (${incoming.length})</h2>${trList(incoming, "in")}</div>
+  `;
 }
 
-function escapeHtml(s) { return String(s).replace(/[&<>"']/g, c =>
-  ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
-
-// ---- Edit panel: emit CLI commands (safe: no direct writes) ----
-function populateCatState() {
-  const sel = document.getElementById("catState");
-  sel.innerHTML = fsmData.states.map(s => `<option>${s.id}</option>`).join("");
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-document.getElementById("btnAdd").onclick = () => {
-  const name = document.getElementById("newName").value.trim();
-  const cat = document.getElementById("newCat").value;
-  const box = document.getElementById("addCmd");
-  if (!/^STATE_[A-Z0-9_]+$/.test(name)) { box.style.display = "block";
-    box.textContent = "⚠ name must match STATE_[A-Z0-9_]+"; return; }
-  box.style.display = "block";
-  box.textContent =
-`# dry-run (shows a diff, writes nothing):
-python tools/fsm_graph.py add-state ${name} --category ${cat}
-# apply for real (makes .bak backups):
-python tools/fsm_graph.py add-state ${name} --category ${cat} --apply
-# then regenerate the graph:
-python tools/fsm_graph.py`;
-};
-document.getElementById("btnCat").onclick = () => {
-  const st = document.getElementById("catState").value;
-  const cat = document.getElementById("catValue").value;
-  const box = document.getElementById("catCmd");
-  box.style.display = "block";
-  box.textContent =
-`python tools/fsm_graph.py set-category ${st} ${cat} --apply
-python tools/fsm_graph.py`;
-};
 
-// ---- Pan / zoom / drag ----
-function applyViewTransform() { viewport.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`); }
+// ---- Pan / zoom ----
+function applyViewTransform() {
+  viewport.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`);
+}
 function resetView() {
-  const xs = Object.values(pos).map(p => p.x), ys = Object.values(pos).map(p => p.y);
-  if (!xs.length) { view = { x: 60, y: 60, k: 1 }; applyViewTransform(); return; }
-  view = { x: 60 - Math.min(...xs), y: (svg.clientHeight/2) - Math.min(...ys) - NODE_H/2, k: 1 };
+  // Fit content roughly.
+  const xs = Object.values(pos).map(p => p.x);
+  const ys = Object.values(pos).map(p => p.y);
+  const minX = Math.min(...xs), minY = Math.min(...ys);
+  view = { x: 60 - minX, y: (svg.clientHeight / 2) - minY - NODE_H / 2, k: 1 };
   applyViewTransform();
 }
 document.getElementById("btnReset").onclick = resetView;
@@ -447,29 +377,43 @@ document.getElementById("btnRelayout").onclick = () => { layout(); updatePositio
 
 svg.addEventListener("wheel", e => {
   e.preventDefault();
-  const scale = e.deltaY < 0 ? 1.1 : 1/1.1; const rect = svg.getBoundingClientRect();
+  const scale = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+  const rect = svg.getBoundingClientRect();
   const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-  view.x = mx - (mx - view.x) * scale; view.y = my - (my - view.y) * scale; view.k *= scale;
+  view.x = mx - (mx - view.x) * scale;
+  view.y = my - (my - view.y) * scale;
+  view.k *= scale;
   applyViewTransform();
 }, { passive: false });
 
 let panning = false, panStart = null;
 svg.addEventListener("mousedown", e => {
-  if (e.target.closest(".node")) return;
-  panning = true; svg.classList.add("panning"); panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+  if (e.target.closest(".node")) return;   // node drag handled separately
+  panning = true; svg.classList.add("panning");
+  panStart = { x: e.clientX - view.x, y: e.clientY - view.y };
+  clearSelection();
+  document.getElementById("detail").innerHTML =
+    '<div class="card"><span class="empty">Click a state node to inspect it.</span></div>';
 });
 window.addEventListener("mousemove", e => {
-  if (!panning) return; view.x = e.clientX - panStart.x; view.y = e.clientY - panStart.y; applyViewTransform(); });
+  if (!panning) return;
+  view.x = e.clientX - panStart.x; view.y = e.clientY - panStart.y;
+  applyViewTransform();
+});
 window.addEventListener("mouseup", () => { panning = false; svg.classList.remove("panning"); });
 
+// ---- Node drag ----
 let drag = null;
 function startNodeDrag(e) {
-  e.stopPropagation(); const id = e.currentTarget.dataset.id;
-  drag = { id, sx: e.clientX, sy: e.clientY, ox: pos[id].x, oy: pos[id].y };
+  e.stopPropagation();
+  const id = e.currentTarget.dataset.id;
+  drag = { id, sx: e.clientX, sy: e.clientY, ox: pos[id].x, oy: pos[id].y, moved: false };
 }
 window.addEventListener("mousemove", e => {
   if (!drag) return;
-  pos[drag.id] = { x: drag.ox + (e.clientX - drag.sx)/view.k, y: drag.oy + (e.clientY - drag.sy)/view.k };
+  const dx = (e.clientX - drag.sx) / view.k, dy = (e.clientY - drag.sy) / view.k;
+  if (Math.abs(dx) + Math.abs(dy) > 2) drag.moved = true;
+  pos[drag.id] = { x: drag.ox + dx, y: drag.oy + dy };
   updatePositions();
 });
 window.addEventListener("mouseup", () => { drag = null; });
