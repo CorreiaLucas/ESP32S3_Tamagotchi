@@ -33,6 +33,15 @@ private:
   int currentFrame;
   bool facingRight;
 
+  // While WALKING with dx==dy==0 the pet is standing still. Instead of cycling
+  // the walk animation on the spot (which read as "walking in place"), it holds
+  // ONE still pose, re-picked at the start of each pause.
+  const uint16_t* idlePose = nullptr;
+  // Pick the still pose: walk1 or happy1 (== index 0 of those tables, since
+  // walk1.png generates walk_0). Falls back safely if a table is missing.
+  const uint16_t* pickIdlePose() const;
+  bool isStandingStill() const { return currentAction == WALKING && dx == 0 && dy == 0; }
+
   // Active Digimon sprite set. Digivolution swaps this pointer.
   const DigimonSprites* digimon = nullptr;
 
