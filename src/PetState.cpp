@@ -160,22 +160,32 @@ void PetState::addDay() {
   saveState();
 }
 
+// Pay the energy cost of one training drill. Callers should check canTrain()
+// first; this clamps at 0 so a drill can never push energy negative.
+void PetState::spendTrainingEnergy() {
+  energy -= TRAIN_ENERGY_COST;
+  if (energy < 0) energy = 0;
+}
+
 void PetState::trainHp() {
   int gain = random(50, 101);   
   maxHp += gain;
   hp = maxHp;                   
+  spendTrainingEnergy();
   saveState();
 }
 
 void PetState::trainAp() {
   int gain = random(5, 11);     
   ap += gain;
+  spendTrainingEnergy();
   saveState();
 }
 
 void PetState::trainDp() {
   int gain = random(5, 11);     
   dp += gain;
+  spendTrainingEnergy();
   saveState();
 }
 

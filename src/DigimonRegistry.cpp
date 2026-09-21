@@ -1,4 +1,5 @@
 #include "DigimonRegistry.h"
+#include "pandamonSprites.h"
 #include "pagumonSprites.h"
 #include "kuramonSprites.h"
 #include "kapurimonSprites.h"
@@ -180,8 +181,31 @@ const DigimonSprites DIGIMON_pagumon = {
 };
 // <<< AUTO-REGISTER pagumon END
 
+// >>> AUTO-REGISTER pandamon BEGIN (build_digimon_sprites.py)
+static const uint16_t* const pandamon_idle_frames[1] = { pandamon_idle };
+const DigimonSprites DIGIMON_pandamon = {
+  "pandamon",
+  PANDAMON_SPRITE_SIZE,
+  PANDAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  nullptr,      0,   // walk
+  nullptr,  0,   // walkBack
+  nullptr,     0,   // sleep
+  pandamon_happy_frames,     3,   // eat
+  pandamon_happy_frames,     3,   // play
+  nullptr,      0,   // sad
+  nullptr,     0,   // dead
+  pandamon_happy_frames,     3,   // happy
+  pandamon_happy_frames,    3,   // attack
+  pandamon_profile               // profile
+};
+// <<< AUTO-REGISTER pandamon END
+
 // --------------------------------------------------------------------------
 const DigimonSprites* const DIGIMON_ALL[] = {
+  &DIGIMON_pandamon,
   &DIGIMON_pagumon,
   &DIGIMON_kuramon,
   &DIGIMON_kapurimon,

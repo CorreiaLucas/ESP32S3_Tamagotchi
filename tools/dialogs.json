@@ -1,0 +1,211 @@
+{
+  "source": "src/DialogManager.cpp",
+  "scripts": [
+    {
+      "name": "intro_jijimon",
+      "nodes": [
+        {
+          "speaker": "Jijimon",
+          "text": "Ah, a new tamer! Are you ready to train?",
+          "options": [
+            {
+              "label": "Yes!",
+              "next": 1,
+              "action": "DLG_NONE"
+            },
+            {
+              "label": "Not yet",
+              "next": 2,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 0,
+          "id": "greet"
+        },
+        {
+          "speaker": "Jijimon",
+          "text": "Splendid! Feed and train your Digimon well.",
+          "options": [
+            {
+              "label": "I will",
+              "next": 3,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 1,
+          "id": "encourage"
+        },
+        {
+          "speaker": "Jijimon",
+          "text": "Take your time. Come back when you feel ready.",
+          "options": [
+            {
+              "label": "Okay",
+              "next": 3,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 2,
+          "id": "reassure"
+        },
+        {
+          "speaker": "Jijimon",
+          "text": "May your bond grow strong. Farewell!",
+          "options": [
+            {
+              "label": "Bye",
+              "next": -1,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 3,
+          "id": "farewell"
+        }
+      ],
+      "edges": [
+        {
+          "from": 0,
+          "label": "Yes!",
+          "action": "DLG_NONE",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 0,
+          "label": "Not yet",
+          "action": "DLG_NONE",
+          "end": false,
+          "to": 2
+        },
+        {
+          "from": 1,
+          "label": "I will",
+          "action": "DLG_NONE",
+          "end": false,
+          "to": 3
+        },
+        {
+          "from": 2,
+          "label": "Okay",
+          "action": "DLG_NONE",
+          "end": false,
+          "to": 3
+        },
+        {
+          "from": 3,
+          "label": "Bye",
+          "action": "DLG_NONE",
+          "end": true,
+          "to": null
+        }
+      ],
+      "startNode": 0,
+      "refusedNode": -1
+    },
+    {
+      "name": "trainer_pandamon",
+      "nodes": [
+        {
+          "speaker": "Pandamon",
+          "text": "Training time! Which drill today?",
+          "options": [
+            {
+              "label": "Strength",
+              "next": 1,
+              "action": "DLG_TRAIN_AP"
+            },
+            {
+              "label": "Defense",
+              "next": 1,
+              "action": "DLG_TRAIN_DP"
+            },
+            {
+              "label": "Stamina",
+              "next": 1,
+              "action": "DLG_TRAIN_HP"
+            }
+          ],
+          "index": 0,
+          "id": "menu"
+        },
+        {
+          "speaker": "Pandamon",
+          "text": "Good work! Another round?",
+          "options": [
+            {
+              "label": "Again",
+              "next": 0,
+              "action": "DLG_NONE"
+            },
+            {
+              "label": "Enough",
+              "next": -1,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 1,
+          "id": "done"
+        },
+        {
+          "speaker": "Pandamon",
+          "text": "You're too worn out. Rest first, then come back.",
+          "options": [
+            {
+              "label": "Okay",
+              "next": -1,
+              "action": "DLG_NONE"
+            }
+          ],
+          "index": 2,
+          "id": "tired"
+        }
+      ],
+      "edges": [
+        {
+          "from": 0,
+          "label": "Strength",
+          "action": "DLG_TRAIN_AP",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 0,
+          "label": "Defense",
+          "action": "DLG_TRAIN_DP",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 0,
+          "label": "Stamina",
+          "action": "DLG_TRAIN_HP",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 1,
+          "label": "Again",
+          "action": "DLG_NONE",
+          "end": false,
+          "to": 0
+        },
+        {
+          "from": 1,
+          "label": "Enough",
+          "action": "DLG_NONE",
+          "end": true,
+          "to": null
+        },
+        {
+          "from": 2,
+          "label": "Okay",
+          "action": "DLG_NONE",
+          "end": true,
+          "to": null
+        }
+      ],
+      "startNode": 0,
+      "refusedNode": 2
+    }
+  ]
+}

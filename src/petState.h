@@ -26,6 +26,9 @@ private:
   uint32_t lastStatUpdateTime;
   uint32_t lastPoopTime;
 
+  // Deduct one drill's worth of energy (clamped at 0).
+  void spendTrainingEnergy();
+
 public:
   PetState();
   void begin();
@@ -41,6 +44,14 @@ public:
   void trainHp();
   void trainAp();
   void trainDp();
+  // Energy each training drill costs. Training is refused below this (see
+  // canTrain()), so the pet can't be drilled into the ground.
+  static const int TRAIN_ENERGY_COST = 15;
+  // Whether the pet is currently able to train: awake, alive, and with enough
+  // energy to pay TRAIN_ENERGY_COST.
+  bool canTrain() const {
+    return !dead && !sleeping && energy >= TRAIN_ENERGY_COST;
+  }
   // On digivolution: raise stats to at least the new form's base
   // (max of current vs base -- never lose trained progress).
   void applyEvolutionStats(int baseMaxHp, int baseAp, int baseDp);
