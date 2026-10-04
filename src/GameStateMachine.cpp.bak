@@ -144,15 +144,6 @@ bool MenuController::moveOnNavigation() {
 // ==========================================================================
 //  Shared helpers (unchanged behavior from the original loop()).
 // ==========================================================================
-// Make `d` the active Digimon: swap sprites and seed the pet's base stats to
-// at least the Digimon's base (same "max of current vs base" rule as evolving).
-
-static void applyStarter(const DigimonSprites* d) {
-  if (!d) return;
-  cat.setDigimon(d);
-  cat.setAction(WALKING);
-  pet.applyEvolutionStats(d->baseMaxHp, d->baseAp, d->baseDp);
-}
 
 // Draw the Digivolution page for the active Digimon using the pet's live stats.
 // menu.selection selects among the current Digimon's possible evolutions.

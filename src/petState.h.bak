@@ -3,9 +3,6 @@
 
 #include <Preferences.h>
 
-// Minutes an egg incubates before hatching into the chosen Digimon.
-static const int EGG_HATCH_MINUTES = 5;
-
 class PetState {
 private:
   Preferences preferences;
@@ -13,9 +10,6 @@ private:
   bool dead;
 
   char name[16];
-  char species[16];   // chosen Digimon (egg pick). Empty = not chosen yet.
-  bool isEggPhase;    // true while incubating (shows egg, no decay).
-  int  eggMinutes;    // minutes elapsed in the egg phase (persisted).
   int hunger;
   int happiness;
   int energy;
@@ -64,13 +58,6 @@ public:
   char* getName() {
     return name;
   }
-  const char* getSpecies() const { return species; }
-  bool hasSpecies() const { return species[0] != '\0'; }
-  void setSpecies(const char* s);
-  // Begin the egg (incubation) phase for a freshly chosen species.
-  void startEgg();
-  bool isEgg() const { return isEggPhase; }
-  int  getEggMinutes() const { return eggMinutes; }
   int getHunger() const {
     return hunger;
   }

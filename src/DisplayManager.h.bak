@@ -236,7 +236,6 @@ void drawDigivolutionDetail(const struct DigimonSprites* current, int targetInde
   void drawDialog(const char* speaker, const char* text,
                   const char* const* options, int optionCount, int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
-  void drawCombatScene(const class Combat& combat);
 
   void drawMinigameTopBar(int score, int timeLeft);
   void updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY);

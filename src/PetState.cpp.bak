@@ -18,8 +18,6 @@ void PetState::begin() {
   maxHp = preferences.getInt("maxHp", 100);
   ap = preferences.getInt("ap", 10);
   dp = preferences.getInt("dp", 10);
-  level = preferences.getInt("level", 1);
-  xp = preferences.getInt("xp", 0);
 
   uptimeMinutes = preferences.getInt("uptime", 0);
   {
@@ -158,8 +156,6 @@ void PetState::saveState() {
   preferences.putString("species", species);
   preferences.putBool("isEgg", isEggPhase);
   preferences.putInt("eggMin", eggMinutes);
-  preferences.putInt("level", level);
-  preferences.putInt("xp", xp);
 }
 
 void PetState::reset() {
@@ -179,8 +175,6 @@ void PetState::reset() {
   species[0] = '\0';        // clear -> egg selection on next start
   isEggPhase = false;
   eggMinutes = 0;
-  level = 1;
-  xp = 0;
   saveState();
 }
 
@@ -250,19 +244,4 @@ void PetState::startEgg() {
   eggMinutes = 0;
   lastMinuteTime = millis();   // start the incubation minute clock now
   saveState();
-}
-
-int PetState::gainXp(int amount) {
-  if (amount <= 0) return 0;
-  int levelsGained = 0;
-  xp += amount;
-  // Level is shared across digivolutions and never resets. Stats are left
-  // untouched here on purpose -- ap/dp/maxHp come only from the training menu.
-  while (xp >= xpForNext(level)) {
-    xp -= xpForNext(level);
-    level++;
-    levelsGained++;
-  }
-  saveState();
-  return levelsGained;
 }

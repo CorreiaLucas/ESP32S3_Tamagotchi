@@ -1,8 +1,6 @@
 #include "DisplayManager.h"
 #include "Sprites.h"
 #include "EggSprites.h"
-#include "Combat.h"
-#include "EnemyRegistry.h"
 // NPC sprite source. NOTE: there is no Pandamon art in Assets/ yet, so this
 // uses an existing 30x30 profile as a STAND-IN so the NPC is visible/testable.
 // To swap in real art: generate it (see README "Digimon sprite generator" or
@@ -1162,120 +1160,6 @@ void DisplayManager::drawEggSelect(int selected, int count, const char* label, i
     frameBuffer.setCursor(pnlX + (pnlW - tw) / 2, pnlY + 92);
     frameBuffer.print(label);
 
-  }
-  void DisplayManager::drawCombatScene(const Combat& combat) {
-  seedBufferBackground();
-  gfx = &frameBuffer;
-  frameBuffer.setTextSize(1);
-
-  const Enemy* enemy = combat.getEnemy();
-  CombatPhase phase = combat.getPhase();
-
-  // ---- Enemy header: name + HP bar ----------------------------------------
-  frameBuffer.setTextColor(TFT_WHITE);
-  frameBuffer.setCursor(4, 3);
-  frameBuffer.printf("%s", enemy ? enemy->name : "Enemy");
-
-  const int eBarX = 4, eBarY = 13, eBarW = 80, eBarH = 6;
-  frameBuffer.drawRect(eBarX, eBarY, eBarW, eBarH, STAT_FRAME_COLOR);
-  int eMax = combat.getEnemyMaxHp() > 0 ? combat.getEnemyMaxHp() : 1;
-  int eFill = ((eBarW - 2) * combat.getEnemyHp()) / eMax;
-  if (eFill < 0) eFill = 0;
-  if (eFill > eBarW - 2) eFill = eBarW - 2;
-  if (eFill > 0) frameBuffer.fillRect(eBarX + 1, eBarY + 1, eFill, eBarH - 2, TFT_RED);
-
-  // ---- Enemy sprite (upper-right) -----------------------------------------
-  if (enemy && enemy->art && enemy->art->walk && enemy->art->walkCount > 0) {
-    int esize = enemy->art->spriteSize;
-    int ex = SCREEN_WIDTH - esize - 2;
-    int ey = 20;
-    // Enemy faces LEFT (toward the player). walk[0] drawn flipped to face left.
-    blitSpriteToBuffer(frameBuffer, ex, ey, esize, enemy->art->walk[0], false);
-  }
-
-  // ---- Player sprite (lower-left) -----------------------------------------
-  const DigimonSprites* pArt = combat.getPlayerArt();
-  if (pArt) {
-    int psize = pArt->spriteSize;
-    int px = 4;
-    int py = 70 - (psize / 2);
-    if (py < 24) py = 24;
-    // During the player's hit resolve, show an attack frame if the Digimon
-    // ships one; otherwise fall back to walk[0].
-    const uint16_t* pframe = nullptr;
-    if (phase == CP_PLAYER_RESOLVE && pArt->attack && pArt->attackCount > 0) {
-      pframe = pArt->attack[0];
-    } else if (pArt->walk && pArt->walkCount > 0) {
-      pframe = pArt->walk[0];
-    }
-    // Player faces RIGHT (toward the enemy): flip the sprite.
-    blitSpriteToBuffer(frameBuffer, px, py, psize, pframe, true);
-  }
-
-  // ---- Lower panel: message + menu/timing + player HP ---------------------
-  const int pnlX = 2, pnlY = 86, pnlW = 124, pnlH = 40;
-  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
-
-  // Message line.
-  frameBuffer.setTextColor(MENU_TEXT_DARK);
-  frameBuffer.setCursor(pnlX + 5, pnlY + 4);
-  frameBuffer.printf("%s", combat.getMessage());
-
-  // Player HP bar + numeric.
-  const int pBarX = pnlX + 5, pBarY = pnlY + 15, pBarW = 70, pBarH = 6;
-  frameBuffer.drawRect(pBarX, pBarY, pBarW, pBarH, STAT_FRAME_COLOR);
-  int pMax = combat.getPlayerMaxHp() > 0 ? combat.getPlayerMaxHp() : 1;
-  int pFill = ((pBarW - 2) * combat.getPlayerHp()) / pMax;
-  if (pFill < 0) pFill = 0;
-  if (pFill > pBarW - 2) pFill = pBarW - 2;
-  if (pFill > 0) frameBuffer.fillRect(pBarX + 1, pBarY + 1, pFill, pBarH - 2, STAT_HAPPY_COLOR);
-  frameBuffer.setCursor(pBarX + pBarW + 3, pBarY - 1);
-  frameBuffer.printf("%d", combat.getPlayerHp());
-
-  // Charge pips (special-move meter), drawn as small boxes under the HP bar.
-  int chg = combat.getCharge();
-  int chgMax = combat.getChargeMax();
-  for (int i = 0; i < chgMax; i++) {
-    int cx = pBarX + i * 8;
-    int cy = pBarY + 9;
-    frameBuffer.drawRect(cx, cy, 6, 5, STAT_FRAME_COLOR);
-    if (i < chg) frameBuffer.fillRect(cx + 1, cy + 1, 4, 3, STAT_ENERGY_COLOR);
-  }
-
-  // Phase-specific lower content.
-  if (phase == CP_PLAYER_MENU) {
-    // Three compact action labels; selected one highlighted.
-    const char* acts[3] = { "Atk", "Grd", "Spc" };
-    int sel = combat.getMenuSelection();
-    for (int i = 0; i < 3; i++) {
-      int ax = pnlX + 5 + i * 40;
-      int ay = pnlY + 27;
-      int aw = 36, ah = 10;
-      bool on = (i == sel);
-      // Grey out Special if not enough charge.
-      bool locked = (i == 2 && chg < chgMax);
-      frameBuffer.fillRect(ax, ay, aw, ah, on ? MENU_PLATE_LGREY : STAT_PLATE_GREY);
-      frameBuffer.drawRect(ax, ay, aw, ah, STAT_FRAME_COLOR);
-      frameBuffer.setTextColor(locked ? STAT_PLATE_DGREY : MENU_TEXT_DARK);
-      frameBuffer.setCursor(ax + 4, ay + 2);
-      frameBuffer.printf("%s%s", on ? ">" : " ", acts[i]);
-    }
-  } else if (phase == CP_PLAYER_TIMING) {
-    // Timing bar: full-width track with good/perfect zones marked and a
-    // moving marker. The player presses OK when the marker is in the center.
-    const int tX = pnlX + 5, tY = pnlY + 29, tW = pnlW - 10, tH = 8;
-    frameBuffer.drawRect(tX, tY, tW, tH, STAT_FRAME_COLOR);
-    // Good zone (lighter) then perfect zone (yellow) centered.
-    int goodLo = tX + 1 + ((tW - 2) * 30) / 100;
-    int goodHi = tX + 1 + ((tW - 2) * 70) / 100;
-    int perfLo = tX + 1 + ((tW - 2) * 44) / 100;
-    int perfHi = tX + 1 + ((tW - 2) * 56) / 100;
-    frameBuffer.fillRect(goodLo, tY + 1, goodHi - goodLo, tH - 2, MENU_PLATE_LGREY);
-    frameBuffer.fillRect(perfLo, tY + 1, perfHi - perfLo, tH - 2, STAT_HAPPY_COLOR);
-    // Marker.
-    int mTotal = combat.getTimingMax() > 0 ? combat.getTimingMax() : 1;
-    int mx = tX + 1 + ((tW - 2) * combat.getTimingPos()) / mTotal;
-    frameBuffer.fillRect(mx - 1, tY - 1, 3, tH + 2, TFT_RED);
   }
 
   // Footer hint.

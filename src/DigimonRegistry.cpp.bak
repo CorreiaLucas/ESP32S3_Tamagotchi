@@ -28,7 +28,7 @@ static const uint16_t* const terriermon_sleep_frames[1] = { terriermon_sleep };
 //   address here -- before its definition below -- is valid.)
 // --------------------------------------------------------------------------
 static const EvolutionReq terriermon_evolutions[] = {
-  { &DIGIMON_gargomon, /*maxHp*/150, /*ap*/25, /*dp*/20, /*ageDays*/2, /*happy*/50, /*hunger*/0, /*level*/5  },
+  { &DIGIMON_gargomon, /*maxHp*/150, /*ap*/25, /*dp*/20, /*ageDays*/2, /*happy*/50, /*hunger*/0 },
 };
 
 // ==========================================================================
@@ -318,14 +318,12 @@ const DigimonSprites* digimonByName(const char* name) {
 
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
-                              int ageDays, int happiness, int hunger,
-                              int level) {
+                              int ageDays, int happiness, int hunger) {
   if (req.minMaxHp    > 0 && maxHp     < req.minMaxHp)    return false;
   if (req.minAp       > 0 && ap        < req.minAp)       return false;
   if (req.minDp       > 0 && dp        < req.minDp)       return false;
   if (req.minAgeDays  > 0 && ageDays   < req.minAgeDays)  return false;
   if (req.minHappiness> 0 && happiness < req.minHappiness)return false;
   if (req.minHunger   > 0 && hunger    < req.minHunger)   return false;
-  if (req.minLevel    > 0 && level     < req.minLevel)    return false;
   return true;
 }

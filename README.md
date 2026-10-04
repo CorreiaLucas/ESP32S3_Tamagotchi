@@ -267,8 +267,8 @@ and edges show ⚡ACTION when a choice has a side effect.
   [ ] Combat sprites
   [ ] Enemies
 [ ]  Eggs / more digimons
-[ ]  Real digivolution system 
-  [ ]  Attaching base stat for each digimon
+[X]  Real digivolution system 
+  [X]  Attaching base stat for each digimon
 [ ] Correct time gestion
 
 

@@ -89,7 +89,7 @@ const DigimonSprites* digimonByName(const char* name);
 // Evaluate whether the pet currently meets an evolution's requirements.
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
-                              int ageDays, int happiness, int hunger,
+                              int ageDays, int happiness, int hunger, 
                               int level);
 
 #endif
