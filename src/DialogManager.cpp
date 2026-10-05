@@ -52,10 +52,12 @@ const DialogScript DIALOG_intro_jijimon = {
 // @dialog-script-begin: trainer_pandamon
 static const DialogNode kTrainerPandamon[] = {
   // @node menu
-  { "Pandamon", "Training time! Which drill today?",
+  { "Pandamon", "Pick a drill:",
     { { "Strength", 1, DLG_TRAIN_AP },
       { "Defense",  1, DLG_TRAIN_DP },
-      { "Stamina",  1, DLG_TRAIN_HP } } },
+      { "Stamina",  1, DLG_TRAIN_HP },
+      { "Intellect",1, DLG_TRAIN_INT },
+      { "Agility",  1, DLG_TRAIN_SPD } } },
 
   // @node done
   { "Pandamon", "Good work! Another round?",

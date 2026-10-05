@@ -1,4 +1,8 @@
 #include "DigimonRegistry.h"
+#include "chibomonSprites.h"
+#include "tokomonSprites.h"
+#include "dorimonSprites.h"
+#include "tanemonSprites.h"
 #include "pandamonSprites.h"
 #include "pagumonSprites.h"
 #include "kuramonSprites.h"
@@ -24,7 +28,7 @@ static const uint16_t* const terriermon_sleep_frames[1] = { terriermon_sleep };
 //   address here -- before its definition below -- is valid.)
 // --------------------------------------------------------------------------
 static const EvolutionReq terriermon_evolutions[] = {
-  { &DIGIMON_gargomon, /*maxHp*/150, /*ap*/25, /*dp*/20, /*ageDays*/2, /*happy*/50, /*hunger*/0 },
+  { &DIGIMON_gargomon, /*maxHp*/150, /*ap*/25, /*dp*/20, /*ageDays*/2, /*happy*/50, /*hunger*/0, /*level*/5, /*INT*/30, /*SPD*/25 },
 };
 
 // ==========================================================================
@@ -37,7 +41,9 @@ const DigimonSprites DIGIMON_terriermon = {
   TERRIERMON_SPRITE_SIZE,
   TERRIERMON_PROFILE_SIZE,
   45,   // realHeightCm (Terriermon ~40-50cm)
+  TYPE_VACCINE,                               // combat type
   100, 10, 10,                        // baseMaxHp, baseAp, baseDp (Rookie)
+  10, 10,                               // baseIntel, baseSpeed
   terriermon_evolutions, 1,           // evolutions, count
   terriermon_walk_frames,      3,   // walk
   terriermon_walkback_frames,  3,   // walkBack
@@ -62,7 +68,9 @@ const DigimonSprites DIGIMON_gargomon = {
   GARGOMON_SPRITE_SIZE,
   GARGOMON_PROFILE_SIZE,
   150,  // realHeightCm (Gargomon ~1.5m)
+  TYPE_VACCINE,                               // combat type
   250, 30, 25,                        // baseMaxHp, baseAp, baseDp (Champion)
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (final form for now)
   gargomon_walk_frames,      4,   // walk
   gargomon_walkback_frames,  4,   // walkBack
@@ -82,7 +90,9 @@ const DigimonSprites DIGIMON_tsunomon = {
   TSUNOMON_SPRITE_SIZE,
   TSUNOMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
   120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   tsunomon_walk_frames,      3,   // walk
   tsunomon_walkback_frames,  3,   // walkBack
@@ -103,7 +113,9 @@ const DigimonSprites DIGIMON_koromon = {
   KOROMON_SPRITE_SIZE,
   KOROMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
   120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   koromon_walk_frames,      3,   // walk
   koromon_walkback_frames,  3,   // walkBack
@@ -124,7 +136,9 @@ const DigimonSprites DIGIMON_kapurimon = {
   KAPURIMON_SPRITE_SIZE,
   KAPURIMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_VIRUS,                               // combat type
   120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   kapurimon_walk_frames,      3,   // walk
   kapurimon_walkback_frames,  3,   // walkBack
@@ -145,7 +159,9 @@ const DigimonSprites DIGIMON_kuramon = {
   KURAMON_SPRITE_SIZE,
   KURAMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_VIRUS,                               // combat type
   120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   kuramon_walk_frames,      3,   // walk
   kuramon_walkback_frames,  3,   // walkBack
@@ -166,7 +182,9 @@ const DigimonSprites DIGIMON_pagumon = {
   PAGUMON_SPRITE_SIZE,
   PAGUMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_VIRUS,                               // combat type
   120, 10, 10,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   pagumon_walk_frames,      3,   // walk
   pagumon_walkback_frames,  3,   // walkBack
@@ -188,7 +206,9 @@ const DigimonSprites DIGIMON_pandamon = {
   PANDAMON_SPRITE_SIZE,
   PANDAMON_PROFILE_SIZE,
   0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
   0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
   nullptr, 0,                         // evolutions, count (wire by hand)
   nullptr,      0,   // walk
   nullptr,  0,   // walkBack
@@ -203,8 +223,102 @@ const DigimonSprites DIGIMON_pandamon = {
 };
 // <<< AUTO-REGISTER pandamon END
 
+// >>> AUTO-REGISTER tanemon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_tanemon = {
+  "tanemon",
+  TANEMON_SPRITE_SIZE,
+  TANEMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
+  0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  tanemon_walk_frames,      3,   // walk
+  tanemon_walkback_frames,  3,   // walkBack
+  tanemon_walk_frames,     3,   // sleep
+  tanemon_happy_frames,     3,   // eat
+  tanemon_happy_frames,     3,   // play
+  tanemon_walk_frames,      3,   // sad
+  tanemon_walk_frames,     3,   // dead
+  tanemon_happy_frames,     3,   // happy
+  tanemon_attack_frames,    5,   // attack
+  tanemon_profile               // profile
+};
+// <<< AUTO-REGISTER tanemon END
+
+// >>> AUTO-REGISTER dorimon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_dorimon = {
+  "dorimon",
+  DORIMON_SPRITE_SIZE,
+  DORIMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
+  0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  dorimon_walk_frames,      3,   // walk
+  dorimon_walkback_frames,  3,   // walkBack
+  dorimon_walk_frames,     3,   // sleep
+  dorimon_happy_frames,     3,   // eat
+  dorimon_happy_frames,     3,   // play
+  dorimon_walk_frames,      3,   // sad
+  dorimon_walk_frames,     3,   // dead
+  dorimon_happy_frames,     3,   // happy
+  dorimon_attack_frames,    4,   // attack
+  dorimon_profile               // profile
+};
+// <<< AUTO-REGISTER dorimon END
+
+// >>> AUTO-REGISTER tokomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_tokomon = {
+  "tokomon",
+  TOKOMON_SPRITE_SIZE,
+  TOKOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
+  0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  tokomon_walk_frames,      3,   // walk
+  tokomon_walkback_frames,  3,   // walkBack
+  tokomon_walk_frames,     3,   // sleep
+  tokomon_happy_frames,     3,   // eat
+  tokomon_happy_frames,     3,   // play
+  tokomon_walk_frames,      3,   // sad
+  tokomon_walk_frames,     3,   // dead
+  tokomon_happy_frames,     3,   // happy
+  tokomon_attack_frames,    3,   // attack
+  tokomon_profile               // profile
+};
+// <<< AUTO-REGISTER tokomon END
+
+// >>> AUTO-REGISTER chibomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_chibomon = {
+  "chibomon",
+  CHIBOMON_SPRITE_SIZE,
+  CHIBOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                               // combat type
+  0, 0, 0,                        // baseMaxHp, baseAp, baseDp
+  10, 10,                               // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  chibomon_walk_frames,      3,   // walk
+  chibomon_walkback_frames,  3,   // walkBack
+  chibomon_walk_frames,     3,   // sleep
+  chibomon_happy_frames,     3,   // eat
+  chibomon_happy_frames,     3,   // play
+  chibomon_walk_frames,      3,   // sad
+  chibomon_walk_frames,     3,   // dead
+  chibomon_happy_frames,     3,   // happy
+  chibomon_happy_frames,    3,   // attack
+  chibomon_profile               // profile
+};
+// <<< AUTO-REGISTER chibomon END
+
 // --------------------------------------------------------------------------
 const DigimonSprites* const DIGIMON_ALL[] = {
+  &DIGIMON_tokomon,
+  &DIGIMON_tanemon,
   &DIGIMON_pandamon,
   &DIGIMON_pagumon,
   &DIGIMON_kuramon,
@@ -228,12 +342,27 @@ const DigimonSprites* digimonByName(const char* name) {
 
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
-                              int ageDays, int happiness, int hunger) {
-  if (req.minMaxHp    > 0 && maxHp     < req.minMaxHp)    return false;
-  if (req.minAp       > 0 && ap        < req.minAp)       return false;
-  if (req.minDp       > 0 && dp        < req.minDp)       return false;
-  if (req.minAgeDays  > 0 && ageDays   < req.minAgeDays)  return false;
-  if (req.minHappiness> 0 && happiness < req.minHappiness)return false;
-  if (req.minHunger   > 0 && hunger    < req.minHunger)   return false;
+                              int ageDays, int happiness, int hunger,
+                              int level, int intelligence, int speed) {
+  if (req.minMaxHp       > 0 && maxHp        < req.minMaxHp)       return false;
+  if (req.minAp          > 0 && ap           < req.minAp)          return false;
+  if (req.minDp          > 0 && dp           < req.minDp)          return false;
+  if (req.minAgeDays     > 0 && ageDays      < req.minAgeDays)     return false;
+  if (req.minHappiness   > 0 && happiness    < req.minHappiness)   return false;
+  if (req.minHunger      > 0 && hunger       < req.minHunger)      return false;
+  if (req.minLevel       > 0 && level        < req.minLevel)       return false;
+  if (req.minIntelligence> 0 && intelligence < req.minIntelligence)return false;
+  if (req.minSpeed       > 0 && speed        < req.minSpeed)       return false;
   return true;
+}
+
+
+float typeMultiplier(DigimonType attacker, DigimonType defender) {
+  // Official triangle: Vaccine > Virus > Data > Vaccine.
+  if (attacker == defender) return 1.0f;
+  bool advantage =
+      (attacker == TYPE_VACCINE && defender == TYPE_VIRUS) ||
+      (attacker == TYPE_VIRUS   && defender == TYPE_DATA)  ||
+      (attacker == TYPE_DATA    && defender == TYPE_VACCINE);
+  return advantage ? 1.5f : 0.75f;
 }

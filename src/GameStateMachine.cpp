@@ -7,7 +7,10 @@
 #include "SoundManager.h"
 #include "CharacterManager.h"
 #include "DigimonRegistry.h"
+#include "EggSprites.h"
 #include "DialogManager.h"
+#include "Combat.h"
+#include "EnemyRegistry.h"
 
 // ==========================================================================
 //  Managers (single instances shared by every state handler).
@@ -18,6 +21,7 @@ static InputManager    input;
 static SoundManager    sound;
 static CharacterManager cat;
 static DialogManager   dlg;
+static Combat          combat;
 
 // Current active state. Never assign this directly outside changeState().
 static GameState currentState = STATE_MAIN;
@@ -57,11 +61,27 @@ static const unsigned long SCREENSAVER_TIMEOUT = 60000;
 //  the shared `menu` controller in its onEnter().
 // ==========================================================================
 static const char* topMenuItems[]      = { "Action", "Digimon", "Talk", "Settings", "Exit" };
-static const char* actionMenuItems[]   = { "Feed", "Play", "Sleep", "Clean", "Back" };
+static const char* actionMenuItems[]   = { "Feed", "Play", "Sleep", "Clean", "Battle", "Back" };
 static const char* digimonMenuItems[]  = { "Stats", "Training", "Digivolution", "Back" };
 
+// ==========================================================================
+//  EGG SELECTION (first run). Each egg hatches into a fixed starter Digimon.
+//  Placeholder art for now (see DisplayManager::drawEggSelect); the mapping
+//  below is the source of truth. label = shown under the selected egg.
+// ==========================================================================
+struct EggDef { const char* label; const DigimonSprites* starter; };
+static const EggDef kEggs[] = {
+  { "Dorimon",   &DIGIMON_dorimon   },
+  { "Kapurimon", &DIGIMON_kapurimon },
+  { "Koromon",   &DIGIMON_koromon   },
+  { "Pagumon",   &DIGIMON_pagumon   },
+  { "Tanemon",   &DIGIMON_tanemon   },
+  { "Tokomon",   &DIGIMON_tokomon   },
+  { "Tsunomon",  &DIGIMON_tsunomon  },
+};
+static const int NUM_EGGS = sizeof(kEggs) / sizeof(kEggs[0]);
 static const int NUM_MENU_ITEMS     = 5;
-static const int NUM_ACTION_ITEMS   = 5;
+static const int NUM_ACTION_ITEMS   = 6;
 static const int NUM_DIGIMON_ITEMS  = 4;
 static const int NUM_SETTINGS_ITEMS = 3;
 
@@ -127,14 +147,30 @@ bool MenuController::moveOnNavigation() {
 // ==========================================================================
 //  Shared helpers (unchanged behavior from the original loop()).
 // ==========================================================================
+// Make `d` the active Digimon: swap sprites and seed the pet's base stats to
+// at least the Digimon's base (same "max of current vs base" rule as evolving).
+
+static void applyStarter(const DigimonSprites* d) {
+  if (!d) return;
+  cat.setDigimon(d);
+  cat.setAction(WALKING);
+  pet.applyEvolutionStats(d->baseMaxHp, d->baseAp, d->baseDp, d->baseIntel, d->baseSpeed);
+}
 
 // Draw the Digivolution page for the active Digimon using the pet's live stats.
 // menu.selection selects among the current Digimon's possible evolutions.
-static void drawDigivolvePage() {
-  const DigimonSprites* cur = cat.getDigimon();
-  display.drawDigivolutionPage(cur, menu.selection,
-                               pet.getMaxHp(), pet.getAp(), pet.getDp(),
-                               pet.getAge(), pet.getHappiness(), pet.getHunger());
+static int dvDetailIndex = -1;
+static int dvDetailRow   = 0;
+
+static void drawDigivolveList() {
+  display.drawDigivolutionList(cat.getDigimon(), menu.selection);
+}
+
+static void drawDigivolveDetail() {
+  display.drawDigivolutionDetail(cat.getDigimon(), dvDetailIndex, dvDetailRow,
+                                 pet.getMaxHp(), pet.getAp(), pet.getDp(),
+                                 pet.getAge(), pet.getHappiness(), pet.getHunger(),
+                                 pet.getLevel(), pet.getInt(), pet.getSpeed());
 }
 
 // ==========================================================================
@@ -143,12 +179,25 @@ static void drawDigivolvePage() {
 // Composite + push the whole main scene, then reset the incremental-draw
 // caches. Used on state entry AND whenever the static scene changes (e.g. the
 // NPC selection outline turns on/off).
+static int eggWobble = 0;
+
 static void repaintMainScene() {
-  display.renderMainScene(pet.getHunger(), pet.getHappiness(), pet.getEnergy(),
-                          cat.getX(), cat.getY(), cat.getWidth(), cat.getHeight(),
-                          cat.getCurrentFrame(), cat.getCurrentFlip(),
-                          pet.getPoopCount());
-  lastHunger    = -1;
+  if (pet.isEgg()) {
+    // Incubating: show the chosen species' EGG (wobbling) where the pet would
+    // be -- centred, no walking -- instead of the Digimon itself.
+    const uint16_t* const* frames = eggFramesForSpecies(pet.getSpecies());
+    const uint16_t* eggFrame = frames ? frames[eggWobble % EGG_FRAME_COUNT] : nullptr;
+    int ex = (SCREEN_WIDTH  - EGG_SPRITE_SIZE) / 2;
+    int ey = (SCREEN_HEIGHT - EGG_SPRITE_SIZE) / 2 + 8;   // a touch below centre
+    display.renderMainScene(pet.getHunger(), pet.getHappiness(), pet.getEnergy(),
+                            ex, ey, EGG_SPRITE_SIZE, EGG_SPRITE_SIZE,
+                            eggFrame, false, pet.getPoopCount());
+  } else {
+    display.renderMainScene(pet.getHunger(), pet.getHappiness(), pet.getEnergy(),
+                            cat.getX(), cat.getY(), cat.getWidth(), cat.getHeight(),
+                            cat.getCurrentFrame(), cat.getCurrentFlip(),
+                            pet.getPoopCount());
+  }  lastHunger    = -1;
   lastHappiness = -1;
   lastEnergy    = -1;
   lastPoopCount = pet.getPoopCount();
@@ -170,6 +219,38 @@ static GameState mainOnUpdate() {
     return STATE_DEAD;
   }
 
+  static bool wasEgg = false;
+  if (pet.isEgg()) {
+    wasEgg = true;
+    // Animate the egg wobble on a timer.
+    static uint32_t eggAnimTime = 0;
+    if (millis() - eggAnimTime >= 250) {
+      eggAnimTime = millis();
+      eggWobble = (eggWobble + 1) % EGG_FRAME_COUNT;
+      repaintMainScene();
+    }
+    // Still allow opening the menu (settings/reset) during incubation.
+    if (input.isOkPressed()) {
+      sound.playClick();
+      return STATE_MENU;
+    }
+    // L/R could target the NPC as usual.
+    if (input.isLeftPressed() || input.isRightPressed()) {
+      npcSelected = !npcSelected;
+      sound.playClick();
+      display.setNpcHighlight(npcSelected);
+      repaintMainScene();
+    }
+    return STATE_MAIN;
+  }
+  if (wasEgg) {
+    // Just hatched this frame: reveal the Digimon with a celebratory tone.
+    wasEgg = false;
+    cat.setAction(WALKING);
+    sound.playHappyTone();
+    repaintMainScene();
+    return STATE_MAIN;
+  }
   bool isCritical = (pet.getHunger() <= 20 || pet.getHappiness() <= 20);
 
   // Reconcile the pet's animation with its live status.
@@ -326,7 +407,9 @@ static GameState actionMenuOnUpdate() {
         pet.clean();
         sound.playHappyTone();
         return STATE_MAIN;
-      case 4:                              // Back
+      case 4:                              // Battle -> turn-based combat
+        return STATE_COMBAT;
+      case 5:                              // Back
         return STATE_MENU;
     }
   }
@@ -362,7 +445,9 @@ static GameState digimonMenuOnUpdate() {
 //  STATE_STATS_PAGE
 // ==========================================================================
 static void statsPageOnEnter() {
-  display.drawStatsPage(pet.getName(), pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp(),
+  display.drawStatsPage(pet.getName(),
+                        pet.getHp(), pet.getMaxHp(), pet.getAp(), pet.getDp(), pet.getInt(), pet.getSpeed(),
+                        pet.getLevel(), pet.getXp(), pet.getXpForNext(),
                         cat.getDigimon() ? cat.getDigimon()->profile : nullptr,
                         cat.getDigimon() ? cat.getDigimon()->profileSize : 0);
 }
@@ -380,53 +465,73 @@ static GameState statsPageOnUpdate() {
 // ==========================================================================
 static void digivolutionOnEnter() {
   menu.selection = 0;   // select first possible evolution
-  drawDigivolvePage();
+  dvDetailIndex = -1;
+  drawDigivolveList();
 }
 
 static GameState digivolutionOnUpdate() {
   const DigimonSprites* cur = cat.getDigimon();
   int n = (cur && cur->evolutions) ? cur->evolutionCount : 0;
 
-  // No evolutions (final form): OK just returns to the Digimon menu.
-  if (n == 0) {
+  // ---- Écran de détail : toutes les stats requises pour une cible -------
+  if (dvDetailIndex != -1) {
+    if (input.isLeftPressed() || input.isRightPressed()) {
+      sound.playClick();
+      dvDetailRow = (dvDetailRow == 0) ? 1 : 0;   // seulement 2 lignes -> toggle
+      drawDigivolveDetail();
+    }
     if (input.isOkPressed()) {
       sound.playClick();
-      return STATE_DIGIMON_MENU;
+      if (dvDetailRow == 1) {                     // "Back" -> retour à la liste
+        dvDetailIndex = -1;
+        drawDigivolveList();
+      } else {                                    // "Digivolve!"
+        const EvolutionReq& req = cur->evolutions[dvDetailIndex];
+        bool ok = evolutionRequirementsMet(req,
+                    pet.getMaxHp(), pet.getAp(), pet.getDp(),
+                    pet.getAge(), pet.getHappiness(), pet.getHunger(),
+                    pet.getLevel(), pet.getInt(), pet.getSpeed());
+        if (ok && req.target) {
+          sound.playHappyTone();
+          pet.applyEvolutionStats(req.target->baseMaxHp, req.target->baseAp, req.target->baseDp, req.target->baseIntel, req.target->baseSpeed);
+          cat.setDigimon(req.target);
+          pet.setSpecies(req.target->name);   // track the new form
+          pet.setName(req.target->name);      // keep stored name in sync (until rename)
+          cat.setAction(WALKING);
+          return STATE_MAIN;
+        } else {
+          sound.playClick();
+          drawDigivolveDetail();
+        }
+      }
     }
     return STATE_DIGIVOLUTION_PAGE;
   }
 
-  // Navigate the list of possible evolutions (wraparound over `n`).
+  // ---- Liste : une ligne par évolution possible + "Back" -----------------
+  int rowCount = n + 1;
+
   if (input.isLeftPressed()) {
     sound.playClick();
     menu.selection--;
-    if (menu.selection < 0) menu.selection = n - 1;
-    drawDigivolvePage();
+    if (menu.selection < 0) menu.selection = rowCount - 1;
+    drawDigivolveList();
   }
   if (input.isRightPressed()) {
     sound.playClick();
     menu.selection++;
-    if (menu.selection >= n) menu.selection = 0;
-    drawDigivolvePage();
+    if (menu.selection >= rowCount) menu.selection = 0;
+    drawDigivolveList();
   }
 
   if (input.isOkPressed()) {
-    const EvolutionReq& req = cur->evolutions[menu.selection];
-    bool ok = evolutionRequirementsMet(req,
-                pet.getMaxHp(), pet.getAp(), pet.getDp(),
-                pet.getAge(), pet.getHappiness(), pet.getHunger());
-    if (ok && req.target) {
-      sound.playHappyTone();
-      // Carry stats: raise to at least the new form's base.
-      pet.applyEvolutionStats(req.target->baseMaxHp, req.target->baseAp, req.target->baseDp);
-      cat.setDigimon(req.target);
-      cat.setAction(WALKING);
-      return STATE_MAIN;                 // show the new Digimon immediately
-    } else {
-      // Requirements not met: reject with a click, stay on the page.
-      sound.playClick();
-      drawDigivolvePage();
+    sound.playClick();
+    if (n == 0 || menu.selection == n) {          // "Back" (ou forme finale)
+      return STATE_DIGIMON_MENU;
     }
+    dvDetailIndex = menu.selection;
+    dvDetailRow = 0;
+    drawDigivolveDetail();
   }
   return STATE_DIGIVOLUTION_PAGE;
 }
@@ -523,8 +628,8 @@ static GameState deadOnUpdate() {
     sound.playClick();
     if (menu.selection == 0) {
       pet.reset();
-      cat.setAction(WALKING);
-      return STATE_MAIN;
+      menu.selection = 0;
+      return STATE_EGG_SELECT;
     } else if (menu.selection == 1) {
       display.drawGameOver(menu.selection);
     }
@@ -567,6 +672,8 @@ static bool runDialogAction(DialogAction action) {
     case DLG_TRAIN_HP:
     case DLG_TRAIN_AP:
     case DLG_TRAIN_DP:
+    case DLG_TRAIN_INT:
+    case DLG_TRAIN_SPD:
       // Training costs energy; refuse when the pet is asleep or too drained.
       if (!pet.canTrain()) {
         sound.playSadTone();
@@ -582,11 +689,21 @@ static bool runDialogAction(DialogAction action) {
         trainBefore = pet.getAp();
         pet.trainAp();
         trainAfter = pet.getAp();
-      } else {
+      } else if (action == DLG_TRAIN_DP) {
         trainStatName = "DP";
         trainBefore = pet.getDp();
         pet.trainDp();
         trainAfter = pet.getDp();
+      } else if (action == DLG_TRAIN_INT) {
+        trainStatName = "INT";
+        trainBefore = pet.getInt();
+        pet.trainInt();
+        trainAfter = pet.getInt();
+      } else {
+        trainStatName = "SPD";
+        trainBefore = pet.getSpeed();
+        pet.trainSpeed();
+        trainAfter = pet.getSpeed();
       }
       sound.playHappyTone();
       trainShowResult = true;
@@ -659,6 +776,87 @@ static GameState trainResultOnUpdate() {
 }
 
 // ==========================================================================
+//  STATE_EGG_SELECT  (first run / after reset: pick the starter egg)
+//  menu.selection doubles as the egg index. OK hatches the chosen egg:
+//  applies the starter Digimon, persists the species, and enters STATE_MAIN.
+// ==========================================================================
+// Egg wobble animation: the centre egg cycles its 3 frames on a timer.
+static int      eggFrame     = 0;
+static uint32_t eggLastFrame = 0;
+static const uint32_t EGG_FRAME_MS = 250;   // wobble speed
+
+static void eggSelectOnEnter() {
+  if (menu.selection < 0 || menu.selection >= NUM_EGGS) menu.selection = 0;
+  eggFrame = 0;
+  eggLastFrame = millis();
+  display.drawEggSelect(menu.selection, NUM_EGGS, kEggs[menu.selection].label, eggFrame);
+}
+
+static GameState eggSelectOnUpdate() {
+  if (input.isLeftPressed()) {
+    sound.playClick();
+    menu.selection--;
+    if (menu.selection < 0) menu.selection = NUM_EGGS - 1;
+    eggFrame = 0;
+    display.drawEggSelect(menu.selection, NUM_EGGS, kEggs[menu.selection].label, eggFrame);
+    return STATE_EGG_SELECT;
+  }
+  if (input.isRightPressed()) {
+    sound.playClick();
+    menu.selection++;
+    if (menu.selection >= NUM_EGGS) menu.selection = 0;
+    eggFrame = 0;
+    display.drawEggSelect(menu.selection, NUM_EGGS, kEggs[menu.selection].label, eggFrame);
+    return STATE_EGG_SELECT;
+  }
+  if (input.isOkPressed()) {
+    sound.playHappyTone();
+    const EggDef& egg = kEggs[menu.selection];
+    applyStarter(egg.starter);
+    pet.setSpecies(egg.starter->name);     // persist -> won't ask again
+    pet.setName(egg.starter->name);        // store the hatched Digimon's name
+    pet.startEgg();                        // begin 5-min incubation (shows egg)
+    return STATE_MAIN;
+  }
+
+  // Idle: advance the wobble animation on its own timer.
+  if (millis() - eggLastFrame >= EGG_FRAME_MS) {
+    eggLastFrame = millis();
+    eggFrame = (eggFrame + 1) % 3;
+    display.drawEggSelect(menu.selection, NUM_EGGS, kEggs[menu.selection].label, eggFrame);
+  }
+  return STATE_EGG_SELECT;
+}
+
+// ==========================================================================
+//  STATE_COMBAT  (Tier-2 turn-based boss fight; ported from the old project)
+//  The Combat engine is self-contained & non-blocking: begin() sets up the
+//  fight, update() drives one tick and renders itself, returning false when
+//  done. We pick an enemy scaled by the pet's level on entry, and on finish
+//  set a happy/sad reaction and return to the main screen.
+// ==========================================================================
+static void combatOnEnter() {
+  if (pet.isSleeping()) pet.wakeUp();
+  // Scale the foe to the pet's level (temporary selection; later driven by an
+  // adventure map). Enemies come from EnemyRegistry.
+  const Enemy* foe = &ENEMY_pagumon_grunt;
+  if (pet.getLevel() >= 5)      foe = &ENEMY_gargomon_boss;
+  else if (pet.getLevel() >= 2) foe = &ENEMY_kuramon_scout;
+  combat.begin(foe, pet, cat);
+  display.clearScreen();
+}
+
+static GameState combatOnUpdate() {
+  // Drive the engine one tick; it renders itself and grants XP on victory.
+  bool ongoing = combat.update(pet, display, input, sound);
+  if (!ongoing) {
+    cat.setAction(combat.didWin() ? HAPPY : SAD);
+    return STATE_MAIN;                  // STATE_MAIN's onEnter repaints the scene
+  }
+  return STATE_COMBAT;
+}
+
+// ==========================================================================
 //  THE STATE TABLE. Indexed by GameState; order MUST match the enum.
 // ==========================================================================
 static const StateHandler kStates[STATE_COUNT] = {
@@ -673,6 +871,8 @@ static const StateHandler kStates[STATE_COUNT] = {
   /* STATE_MINIGAME          @cat:action */ { minigameOnEnter,    minigameOnUpdate },
   /* STATE_NPC_DIALOG        @cat:dialog */ { npcDialogOnEnter,   npcDialogOnUpdate },
   /* STATE_TRAIN_RESULT      @cat:page   */ { trainResultOnEnter, trainResultOnUpdate },
+  /* STATE_EGG_SELECT        @cat:system */ { eggSelectOnEnter,   eggSelectOnUpdate },
+  /* STATE_COMBAT            @cat:action */ { combatOnEnter,      combatOnUpdate },
 };
 
 // ==========================================================================
@@ -700,10 +900,16 @@ void gsmSetup() {
 
   sound.playHappyTone();
 
-  // Enter STATE_MAIN through changeState() so its onEnter() composites the FULL
-  // scene (forest + NPC + pet + chrome). forceFullRedraw() alone would miss the
-  // NPC, which lives in the static scene layer.
-  changeState(STATE_MAIN);
+  // First run (no egg chosen yet) -> egg selection. Otherwise restore the
+  // previously chosen Digimon and go straight to the main screen.
+  if (pet.hasSpecies()) {
+    const DigimonSprites* d = digimonByName(pet.getSpecies());
+    if (d) cat.setDigimon(d);              // restore saved starter/species
+    changeState(STATE_MAIN);
+  } else {
+    menu.selection = 0;
+    changeState(STATE_EGG_SELECT);
+  }
 }
 
 void gsmLoop() {

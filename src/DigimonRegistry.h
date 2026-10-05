@@ -29,7 +29,15 @@ struct EvolutionReq {
   int minAgeDays;                 // require pet age     >= this (0 = ignore)
   int minHappiness;               // require happiness   >= this (0 = ignore)
   int minHunger;                  // require hunger      >= this (0 = ignore)
+  int minLevel;                   // require pet level   >= this (0 = ignore)
+  int minIntelligence;            // require pet INT     >= this (0 = ignore)
+  int minSpeed;                   // require pet SPD     >= this (0 = ignore)
 };
+
+// Digimon attribute type. Classic triangle (official): Vaccine beats Virus,
+// Virus beats Data, Data beats Vaccine. See typeMultiplier() for the damage
+// scaling applied in combat.
+enum DigimonType { TYPE_DATA = 0, TYPE_VACCINE = 1, TYPE_VIRUS = 2 };
 
 struct DigimonSprites {
   const char* name;
@@ -38,6 +46,7 @@ struct DigimonSprites {
   int realHeightCm;    // lore height (cm). Kept for future use (e.g. background
                        // zoom for very tall Digimon). Does NOT affect sprite
                        // size -- sprites draw 1:1 at their stored spriteSize.
+  DigimonType type;    // attribute (Data/Vaccine/Virus) for combat type matchup.
 
   // Base stats for THIS Digimon. On evolve, the pet keeps the MAX of its
   // current stat vs the new Digimon's base (never lose trained progress, but a
@@ -45,6 +54,8 @@ struct DigimonSprites {
   int baseMaxHp;
   int baseAp;
   int baseDp;
+  int baseIntel;
+  int baseSpeed;
 
   // Possible evolutions FROM this Digimon (may be null / count 0 for a final form).
   const EvolutionReq* evolutions;
@@ -75,6 +86,8 @@ extern const DigimonSprites DIGIMON_kapurimon;
 extern const DigimonSprites DIGIMON_kuramon;
 extern const DigimonSprites DIGIMON_pagumon;
 extern const DigimonSprites DIGIMON_pandamon;
+extern const DigimonSprites DIGIMON_tanemon;
+extern const DigimonSprites DIGIMON_tokomon;
 
 // Ordered list for iteration / digivolution chains, plus a name lookup.
 extern const DigimonSprites* const DIGIMON_ALL[];
@@ -83,9 +96,15 @@ extern const int DIGIMON_COUNT;
 // Return the registered Digimon with this name, or nullptr if unknown.
 const DigimonSprites* digimonByName(const char* name);
 
+// Combat damage multiplier for an attacker's type hitting a defender's type.
+// Official triangle: Vaccine>Virus>Data>Vaccine. Advantage x1.5, neutral
+// x1.0, disadvantage x0.75.
+float typeMultiplier(DigimonType attacker, DigimonType defender);
+
 // Evaluate whether the pet currently meets an evolution's requirements.
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
-                              int ageDays, int happiness, int hunger);
+                              int ageDays, int happiness, int hunger,
+                              int level, int intelligence, int speed);
 
 #endif

@@ -45,6 +45,8 @@ enum GameState {
   STATE_MINIGAME,
   STATE_NPC_DIALOG,
   STATE_TRAIN_RESULT,
+  STATE_EGG_SELECT,
+  STATE_COMBAT,
   STATE_COUNT   // sentinel: number of states (keep last)
 };
 

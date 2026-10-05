@@ -35,10 +35,10 @@
 // ==========================================================================
 //                            UI COLORS
 // ==========================================================================
-#define STAT_HUNGER_COLOR  0xFD20  // orange
-#define STAT_HAPPY_COLOR   0xFFE0  // yellow
-#define STAT_ENERGY_COLOR  0x001F  // blue
-#define STAT_BAR_BG        0x2104  // dark track
+#define STAT_HUNGER_COLOR  0xFD4A  // soft amber  // orange
+#define STAT_HAPPY_COLOR   0x3DFF  // soft cyan  // yellow
+#define STAT_ENERGY_COLOR  0x5B7F  // periwinkle/indigo  // blue
+#define STAT_BAR_BG        0x10A2  // deep slate track  // dark track
 
 // --------------------------------------------------------------------------
 // Digimon-World-style GREY PLATE bars.
@@ -68,24 +68,43 @@
 #define STAT_NUM_H   8
 
 // Plate palette
-#define STAT_FRAME_COLOR   0x0000  // b : black frame / borders
-#define STAT_PLATE_GREY    0x8410  // g : plate body (mid grey)
-#define STAT_PLATE_DGREY   0x4208  // d : dark-grey divider
-#define STAT_BEVEL_WHITE   0xFFFF  // w : white bevel highlight (left edge)
-#define STAT_NUM_BG        0x0000  // number box background
-#define STAT_NUM_FRAME     0x8410  // grey border around the number box
+#define STAT_FRAME_COLOR   0x4A8E  // soft slate border (was black)  // b : black frame / borders
+#define STAT_PLATE_GREY    0x2B4F  // slate-blue panel body (was grey)  // g : plate body (mid grey)
+#define STAT_PLATE_DGREY   0x1A2E  // darker slate (shadow/divider)  // d : dark-grey divider
+#define STAT_BEVEL_WHITE   0x7BDF  // light-blue top highlight (was white)  // w : white bevel highlight (left edge)
+#define STAT_NUM_BG        0x10A2  // deep slate number box  // number box background
+#define STAT_NUM_FRAME     0x4A8E  // slate border on number box  // grey border around the number box
 
 // Lighten helper: OR this into a fill colour to get its "top" highlight shade.
-#define STAT_HILITE_OR     0x8410
+#define STAT_HILITE_OR     0x2104  // lighten OR for fill top row
 
 // --------------------------------------------------------------------------
 // Menu styling (same grey-plate DW look as the stat bars).
 //   Grey beveled window; each row is a grey plate; the selected row is a
 //   lighter raised plate with a '>' arrow and dark text.
 // --------------------------------------------------------------------------
-#define MENU_PLATE_LGREY   0xBDF7  // lighter grey for the selected (raised) row
-#define MENU_TEXT_LIGHT    0xFFFF  // text on unselected rows
-#define MENU_TEXT_DARK     0x0000  // text on the light selected row
+#define MENU_PLATE_LGREY   0x4C9F  // bright slate for selected row  // lighter grey for the selected (raised) row
+#define MENU_TEXT_LIGHT    0xFFFF  // crisp off-white text  // text on unselected rows
+#define MENU_TEXT_DARK     0xFFFF  // text on panels is light now (slate bg)  // text on the light selected row
+
+// ==========================================================================
+//  MODERN THEME TOKENS (dark slate + soft accents). Added for the UI refresh:
+//  rounded gradient panels, soft shadow, and semantic combat/stat colors.
+// ==========================================================================
+#define UI_PANEL_TOP    0x3358   // panel gradient: lighter slate (top)
+#define UI_PANEL_BOT    0x1A2E   // panel gradient: darker slate (bottom)
+#define UI_PANEL_BORDER 0x4A8E   // soft slate border
+#define UI_PANEL_HI     0x7BDF   // 1px top highlight line
+#define UI_SHADOW       0x0841   // soft drop shadow
+#define UI_TEXT         0xFFFF   // primary text (light)
+#define UI_TEXT_MUTED   0x9CD3   // secondary/label text (cool grey)
+#define UI_ACCENT       0x4C9F   // selection / active accent (bright slate)
+#define UI_HP_FILL      0x3DFF   // player HP (cyan)
+#define UI_HP_FILL_D    0x1C9F   // HP gradient bottom
+#define UI_DANGER       0xF9A6   // low HP / enemy (soft red)
+#define UI_SPECIAL      0xBE3F   // special/charge (violet)
+#define UI_PANEL_RADIUS 5        // rounded-corner radius for panels
+
 
 // --------------------------------------------------------------------------
 // STATIC SCENE NPC (Pandamon the trainer).
@@ -101,7 +120,7 @@
 // screen spots, and live in the static scene layer so the pet walks in front of
 // them and the trail-erase restores them automatically.
 #define MAX_POOPS       3         // PetState caps poopCount at 3
-#define POOP_SIZE       20        // poop_frame is 20x20
+#define POOP_SIZE       13        // poop_frame is 12x12
 #define POOP_MIN_GAP    4         // extra clearance between two poops, so
                                   // repeat drops don't stack on each other
 
@@ -123,6 +142,19 @@
   #include <Adafruit_SSD1351.h>
   using DisplayDriver = Adafruit_SSD1351;
 #endif
+
+// Small vector-drawn UI icons (primitive draws -> no PROGMEM cost, recolorable,
+// immune to the GFXcanvas16 byte-order issue). Sized to ~ICON box; see drawIcon.
+enum IconId {
+  ICON_FOOD,    // hunger  (drumstick)
+  ICON_HEART,   // happiness / HP (heart)
+  ICON_BOLT,    // energy  (lightning)
+  ICON_SWORD,   // AP      (attack)
+  ICON_SHIELD,  // DP      (defense)
+  ICON_T_VACCINE, // type: vaccine (3D droplet)
+  ICON_T_DATA,    // type: data    (3D cube)
+  ICON_T_VIRUS    // type: virus   (spiky ball)
+};
 
 class DisplayManager {
 private:
@@ -214,12 +246,16 @@ public:
   // screen. Call renderMainScene() afterwards to show it.
   void addPoopBehind(int petX, int petY, int petW, int petH, bool facingRight);
   void drawProfileSprite(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
-  void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  void drawSettings(int selectedIndex, bool isMuted);
-  void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp,
+  void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  
+  void drawSettings(int selectedIndex, bool isMuted);
+  void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp, int intel, int speed,
+                     int level, int xp, int xpForNext,
                      const uint16_t* profileFrame, int profileSize);
-  void drawDigivolutionPage(const struct DigimonSprites* current, int selectedIndex,
+void drawDigivolutionList(const struct DigimonSprites* current, int selectedIndex);
+void drawDigivolutionDetail(const struct DigimonSprites* current, int targetIndex, int detailSelection,
                             int maxHp, int ap, int dp, int ageDays,
-                            int happiness, int hunger);
+                            int happiness, int hunger,
+                             int level, int intelligence, int speed);
   void drawGameOver(int selectedIndex);
   // Turn the NPC's selection outline on/off. Call renderMainScene() afterwards
   // to make the change visible.
@@ -227,12 +263,19 @@ public:
   bool getNpcHighlight() const { return npcHighlight; }
   // Post-training summary: "<stat>  <before> ==> <after>".
   void drawTrainResult(const char* statName, int before, int after, int energyLeft);
+  void drawEggSelect(int selected, int count, const char* label, int frame);
   // Minimal NPC dialog screen: a speaker line, the body text (wrapped), and up
   // to `optionCount` selectable options (selectedIndex highlighted). Driven by
   // the data-table DialogManager via STATE_NPC_DIALOG.
   void drawDialog(const char* speaker, const char* text,
                   const char* const* options, int optionCount, int selectedIndex);
   void drawMinigameUI(int score, int timeLeft, int treatX, int treatY, int oldTreatX, int oldTreatY);
+  void drawCombatScene(const class Combat& combat);
+  // Digimon-World-style grey-plate value bar (matches the main-screen
+  // hunger/happy/energy bars): grey bevelled plate + 2px highlighted fill
+  // lane. Used for combat HP so the fight matches the care screen.
+  // Drawn into the active target (frameBuffer when gfx is set).
+  void drawPlateBar(int x, int y, int w, int value, int maxValue, uint16_t barColor);
 
   void drawMinigameTopBar(int score, int timeLeft);
   void updateMinigameTreat(int treatX, int treatY, int oldTreatX, int oldTreatY);
@@ -240,6 +283,10 @@ public:
 
   // Shared DW grey-plate UI helpers (used by menu / settings / game-over).
   void drawBevelPanel(int x, int y, int w, int h);
+  // Draw a small vector icon at (x,y). `s` is the icon box size in px
+  // (icons are designed around s=10; they scale by s/10). Draws into
+  // the active gfx target (frameBuffer) or `tft`.
+  void drawIcon(IconId id, int x, int y, int s, uint16_t color);
   void drawMenuRow(int x, int y, int w, int h, const char* label,
                    bool selected, const char* suffix = nullptr);
   void enterScreensaver();

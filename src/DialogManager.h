@@ -28,7 +28,7 @@
 //  and each node is annotated with `// @node <id>` so the tool can name them.
 // ==========================================================================
 
-#define MAX_DIALOG_OPTIONS 3
+#define MAX_DIALOG_OPTIONS 5
 #define DIALOG_END (-1)
 
 // --------------------------------------------------------------------------
@@ -47,6 +47,8 @@ enum DialogAction {
   DLG_TRAIN_HP,     // stamina drill  -> pet.trainHp()
   DLG_TRAIN_AP,     // strength drill -> pet.trainAp()
   DLG_TRAIN_DP,     // defense drill  -> pet.trainDp()
+  DLG_TRAIN_INT,    // intellect drill -> pet.trainInt()
+  DLG_TRAIN_SPD,    // agility drill   -> pet.trainSpeed()
 };
 
 // One selectable choice in a dialog node.

@@ -1,0 +1,247 @@
+#include "PetState.h"
+#include <Arduino.h>
+#include <string.h>
+
+PetState::PetState()
+  :  species(""), isEggPhase(false), eggMinutes(0), hunger(50), happiness(50), energy(100), sleeping(false), lastStatUpdateTime(0) {}
+
+void PetState::begin() {
+  preferences.begin("pet_data", false);
+  hunger = preferences.getInt("hunger", 50);
+  happiness = preferences.getInt("happiness", 50);
+  energy = preferences.getInt("energy", 100);
+  dead = preferences.getBool("dead", false);
+  poopCount = preferences.getInt("poops", 0);
+  starveTicks = preferences.getInt("starving", 0);
+  age = preferences.getInt("age", 0);
+  hp = preferences.getInt("hp", 100);
+  maxHp = preferences.getInt("maxHp", 100);
+  ap = preferences.getInt("ap", 10);
+  dp = preferences.getInt("dp", 10);
+
+  uptimeMinutes = preferences.getInt("uptime", 0);
+  {
+    String sp = preferences.getString("species", "");
+    strncpy(species, sp.c_str(), sizeof(species) - 1);
+    species[sizeof(species) - 1] = '\0';
+  }
+  isEggPhase = preferences.getBool("isEgg", false);
+  eggMinutes = preferences.getInt("eggMin", 0);
+
+  lastStatUpdateTime = millis();
+  lastPoopTime = millis();
+  lastMinuteTime = millis();
+}
+
+void PetState::update() {
+  if (dead) return;
+
+  // ---- Egg (incubation) phase: frozen -- no poop, no stat decay, no death.
+  // Only the minute counter advances; at EGG_HATCH_MINUTES the egg hatches
+  // into the chosen Digimon. Uses the same 60s tick as uptime so it survives
+  // reboots via the persisted eggMinutes counter.
+  if (isEggPhase) {
+    if (millis() - lastMinuteTime >= 60000) {
+      lastMinuteTime = millis();
+      eggMinutes++;
+      if (eggMinutes >= EGG_HATCH_MINUTES) {
+        isEggPhase = false;
+        eggMinutes = EGG_HATCH_MINUTES;
+      }
+      saveState();
+    }
+    return;
+  }
+
+  if (!sleeping) {
+    if (millis() - lastPoopTime > 15000) {
+      lastPoopTime = millis();
+      if (poopCount < 3) {
+        poopCount++;
+        saveState();
+      }
+    }
+  } else {
+    lastPoopTime = millis();
+  }
+
+  if (millis() - lastMinuteTime >= 60000) {
+    lastMinuteTime = millis();
+    uptimeMinutes++;
+
+    if (uptimeMinutes >= 60) {
+      uptimeMinutes = 0;
+      addDay();
+    } else {
+      saveState();
+    }
+  }
+
+  if (millis() - lastStatUpdateTime > 2000) {
+    lastStatUpdateTime = millis();
+
+    if (sleeping) {
+      energy += 5;
+      if (energy >= 100) {
+        energy = 100;
+        sleeping = false;
+      }
+    } else {
+      if (hunger > 0) {
+        hunger--;
+        starveTicks = 0; 
+      } else {
+        starveTicks++; 
+      }
+
+      happiness -= (1 + poopCount);
+      if (happiness < 0) happiness = 0;
+
+      energy -= 2;
+      if (energy <= 0) {
+        energy = 0;
+
+        if (starveTicks >= 15) {
+          dead = true; 
+        } else {
+          sleeping = true; 
+        }
+      }
+    }
+
+    saveState();
+  }
+}
+
+void PetState::feed() {
+  if (sleeping) wakeUp();
+  hunger += 20;
+  if (hunger > 100) hunger = 100;
+  saveState();
+}
+
+void PetState::play() {
+  if (sleeping) wakeUp();
+  happiness += 20;
+  if (happiness > 100) happiness = 100;
+  energy -= 10;
+  if (energy < 0) energy = 0;
+  saveState();
+}
+
+void PetState::wakeUp() {
+  sleeping = false;
+  happiness -= 5;
+  if (happiness < 0) happiness = 0;
+}
+
+void PetState::clean() {
+  poopCount = 0;
+  saveState();
+}
+
+void PetState::saveState() {
+  preferences.putInt("hunger", hunger);
+  preferences.putInt("happiness", happiness);
+  preferences.putInt("energy", energy);
+  preferences.putBool("dead", dead);
+  preferences.putInt("poops", poopCount);
+  preferences.putInt("starving", starveTicks);
+  preferences.putInt("age", age);
+  preferences.putInt("uptime", uptimeMinutes);
+  preferences.putInt("hp", hp);
+  preferences.putInt("maxHp", maxHp);
+  preferences.putInt("ap", ap);
+  preferences.putInt("dp", dp);
+  preferences.putString("species", species);
+  preferences.putBool("isEgg", isEggPhase);
+  preferences.putInt("eggMin", eggMinutes);
+}
+
+void PetState::reset() {
+  hunger = 50;
+  happiness = 50;
+  energy = 100;
+  sleeping = false;
+  dead = false;
+  poopCount = 0;
+  starveTicks = 0;
+  age = 0;
+  uptimeMinutes = 0;
+  hp = 100;
+  maxHp = 100;
+  ap = 10;
+  dp = 10;
+  species[0] = '\0';        // clear -> egg selection on next start
+  isEggPhase = false;
+  eggMinutes = 0;
+  saveState();
+}
+
+void PetState::forceSleep() {
+  if (!sleeping) {
+    sleeping = true;
+    energy = 0;
+    saveState();
+  }
+}
+
+void PetState::addDay() {
+  age++;
+  saveState();
+}
+
+// Pay the energy cost of one training drill. Callers should check canTrain()
+// first; this clamps at 0 so a drill can never push energy negative.
+void PetState::spendTrainingEnergy() {
+  energy -= TRAIN_ENERGY_COST;
+  if (energy < 0) energy = 0;
+}
+
+void PetState::trainHp() {
+  int gain = random(50, 101);   
+  maxHp += gain;
+  hp = maxHp;                   
+  spendTrainingEnergy();
+  saveState();
+}
+
+void PetState::trainAp() {
+  int gain = random(5, 11);     
+  ap += gain;
+  spendTrainingEnergy();
+  saveState();
+}
+
+void PetState::trainDp() {
+  int gain = random(5, 11);     
+  dp += gain;
+  spendTrainingEnergy();
+  saveState();
+}
+
+
+void PetState::applyEvolutionStats(int baseMaxHp, int baseAp, int baseDp) {
+  if (baseMaxHp > maxHp) maxHp = baseMaxHp;
+  if (baseAp    > ap)    ap    = baseAp;
+  if (baseDp    > dp)    dp    = baseDp;
+  if (hp > maxHp) hp = maxHp;
+  if (hp < maxHp) hp = maxHp;   // heal to full on evolve
+  saveState();
+}
+
+
+void PetState::setSpecies(const char* s) {
+  if (!s) s = "";
+  strncpy(species, s, sizeof(species) - 1);
+  species[sizeof(species) - 1] = '\0';
+  saveState();
+}
+
+
+void PetState::startEgg() {
+  isEggPhase = true;
+  eggMinutes = 0;
+  lastMinuteTime = millis();   // start the incubation minute clock now
+  saveState();
+}

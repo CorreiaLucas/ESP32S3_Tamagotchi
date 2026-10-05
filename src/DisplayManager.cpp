@@ -1,5 +1,8 @@
 #include "DisplayManager.h"
 #include "Sprites.h"
+#include "EggSprites.h"
+#include "Combat.h"
+#include "EnemyRegistry.h"
 // NPC sprite source. NOTE: there is no Pandamon art in Assets/ yet, so this
 // uses an existing 30x30 profile as a STAND-IN so the NPC is visible/testable.
 // To swap in real art: generate it (see README "Digimon sprite generator" or
@@ -376,19 +379,14 @@ void DisplayManager::drawStatusPanelChrome() {
   // per-region repaint was the bulk of the visible menu-exit lag.
 
   const uint16_t iconColors[3] = { STAT_HUNGER_COLOR, STAT_HAPPY_COLOR, STAT_ENERGY_COLOR };
-  const bool isHeart[3] = { true, false, false };
+  const IconId rowIcon[3] = { ICON_FOOD, ICON_HEART, ICON_BOLT };
 
   for (int row = 0; row < 3; row++) {
     int y = originY + STAT_ROW_Y0 + row * STAT_ROW_H;
-    // Icon
-    if (isHeart[row]) {
-      int cx = originX + STAT_ICON_X + 3;
-      tft.fillCircle(cx - 1, y + 2, 1, iconColors[row]);
-      tft.fillCircle(cx + 1, y + 2, 1, iconColors[row]);
-      tft.fillTriangle(cx - 2, y + 3, cx + 2, y + 3, cx, y + 5, iconColors[row]);
-    } else {
-      tft.fillCircle(originX + STAT_ICON_X + 3, y + 3, 3, iconColors[row]);
-    }
+    // Icon: food / heart / bolt. Small (STAT_PLATE_H ~6px) to fit the bar row.
+    // gfx is nullptr here (chrome draws straight to the panel), so drawIcon
+    // targets tft.
+    drawIcon(rowIcon[row], originX + STAT_ICON_X, y, STAT_PLATE_H + 1, iconColors[row]);
     // ---- Grey plate (static parts of the DW-style bar) ----
     int px = originX + STAT_BAR_X;   // plate left
     int py = y;                      // plate top (6px tall)
@@ -569,14 +567,123 @@ void DisplayManager::drawProfileSprite(int x, int y, int width, int height, cons
 // ---- Shared DW grey-plate helpers -----------------------------------------
 // A raised grey window: grey body, black frame, white top/left bevel and
 // dark-grey bottom/right shadow (same language as the stat bars).
+// ==========================================================================
+//  ICON SYSTEM. Small vector icons drawn with primitives on a 10px design grid,
+//  scaled to `s` and offset to (x,y). Draws into gfx (frameBuffer) or tft.
+//  Primitive-drawn (not blitted bitmaps) -> no PROGMEM cost, recolorable, and
+//  immune to the GFXcanvas16 RAM-push byte-order issue.
+// ==========================================================================
+void DisplayManager::drawIcon(IconId id, int x, int y, int s, uint16_t color) {
+  Adafruit_GFX* g = gfx ? gfx : &tft;
+  // Map a 0..10 design coord to the target box.
+  #define IX(v) (x + (v) * s / 10)
+  #define IY(v) (y + (v) * s / 10)
+  // Secondary shades derived from `color` (highlight = lighten, dark = darken).
+  uint16_t hi   = color | 0x1082;                 // slight lighten
+  uint16_t dark = (uint16_t)((color >> 1) & 0x7BEF);  // ~half brightness
+
+  switch (id) {
+    case ICON_HEART: {
+      g->fillCircle(IX(3), IY(3), s/5, color);
+      g->fillCircle(IX(7), IY(3), s/5, color);
+      g->fillTriangle(IX(1), IY(4), IX(9), IY(4), IX(5), IY(9), color);
+      break;
+    }
+    case ICON_FOOD: {   // drumstick: round meat + bone
+      g->fillCircle(IX(3), IY(3), s*3/10, color);
+      g->drawLine(IX(5), IY(5), IX(9), IY(9), 0xFFFF);
+      g->drawLine(IX(5), IY(6), IX(9), IY(9), 0xFFFF);
+      g->fillCircle(IX(9), IY(9), 1, 0xFFFF);
+      break;
+    }
+    case ICON_BOLT: {
+      g->fillTriangle(IX(6), IY(0), IX(2), IY(6), IX(5), IY(6), color);
+      g->fillTriangle(IX(5), IY(6), IX(9), IY(3), IX(3), IY(9), color);
+      break;
+    }
+    case ICON_SWORD: {  // vertical blade + guard + hilt
+      g->fillRect(IX(4), IY(0), (s*2/10 < 1 ? 1 : s*2/10), s*7/10, color);
+      g->drawLine(IX(2), IY(6), IX(8), IY(6), 0xC410);   // guard (brass-ish)
+      g->fillRect(IX(4), IY(6), (s*2/10 < 1 ? 1 : s*2/10), s*4/10, 0xC410); // hilt
+      break;
+    }
+    case ICON_SHIELD: {
+      g->fillTriangle(IX(1), IY(1), IX(9), IY(1), IX(5), IY(5), color);
+      g->fillTriangle(IX(1), IY(1), IX(5), IY(5), IX(5), IY(9), color);
+      g->fillTriangle(IX(9), IY(1), IX(5), IY(5), IX(5), IY(9), color);
+      break;
+    }
+    case ICON_T_VACCINE: {  // 3D droplet, dark round bottom-left
+      g->fillCircle(IX(6), IY(7), s*4/10, color);
+      g->fillTriangle(IX(6), IY(0), IX(3), IY(5), IX(9), IY(5), color);
+      g->fillCircle(IX(5), IY(5), s/10 < 1 ? 1 : s/10, hi);         // highlight
+      g->fillCircle(IX(4), IY(8), s*2/10 < 1 ? 1 : s*2/10, STAT_PLATE_DGREY); // dark round
+      break;
+    }
+    case ICON_T_DATA: {     // isometric cube
+      g->fillTriangle(IX(6), IY(0), IX(10), IY(2), IX(6), IY(4), hi);
+      g->fillTriangle(IX(6), IY(0), IX(2),  IY(2), IX(6), IY(4), hi);
+      g->fillTriangle(IX(2), IY(2), IX(6), IY(4), IX(6), IY(10), color);  // left face
+      g->fillTriangle(IX(2), IY(2), IX(6), IY(10), IX(2), IY(8), color);
+      g->fillTriangle(IX(10), IY(2), IX(6), IY(4), IX(6), IY(10), dark);  // right face
+      g->fillTriangle(IX(10), IY(2), IX(6), IY(10), IX(10), IY(8), dark);
+      break;
+    }
+    case ICON_T_VIRUS: {    // centered spiky ball, even spikes
+      int cx = IX(6), cy = IY(6);
+      // 8 spikes
+      const int dirs[8][2] = {{0,-6},{4,-4},{6,0},{4,4},{0,6},{-4,4},{-6,0},{-4,-4}};
+      for (int k = 0; k < 8; k++) {
+        int tx = x + (6 + dirs[k][0]) * s/10;
+        int ty = y + (6 + dirs[k][1]) * s/10;
+        // perpendicular base offset ~2 design units
+        int px = -dirs[k][1], py = dirs[k][0];   // perpendicular
+        int b1x = cx + px * s/40, b1y = cy + py * s/40;
+        int b2x = cx - px * s/40, b2y = cy - py * s/40;
+        g->fillTriangle(b1x, b1y, tx, ty, b2x, b2y, dark);
+      }
+      g->fillCircle(cx, cy, s*3/10, color);
+      g->fillCircle(cx - s/10, cy - s/10, s/10 < 1 ? 1 : s/10, hi);
+      break;
+    }
+  }
+  #undef IX
+  #undef IY
+}
+
+// Linear interpolate between two RGB565 colours (t in 0..1), per channel.
+static uint16_t lerp565(uint16_t a, uint16_t b, float t) {
+  int ar = (a >> 11) & 0x1F, ag = (a >> 5) & 0x3F, ab = a & 0x1F;
+  int br = (b >> 11) & 0x1F, bg = (b >> 5) & 0x3F, bb = b & 0x1F;
+  int r = ar + (int)((br - ar) * t);
+  int g = ag + (int)((bg - ag) * t);
+  int bl = ab + (int)((bb - ab) * t);
+  return (uint16_t)((r << 11) | (g << 5) | bl);
+}
+
+// Modern panel: soft drop shadow, rounded corners, vertical 2-tone gradient
+// body, soft border, and a 1px top highlight line. Replaces the old flat grey
+// bevel plate -- every caller (combat, stats, menus, dialog) upgrades at once.
 void DisplayManager::drawBevelPanel(int x, int y, int w, int h) {
-  Adafruit_GFX* g = gfx ? gfx : &tft;   // buffered menu -> canvas, else panel
-  g->fillRect(x, y, w, h, STAT_PLATE_GREY);
-  g->drawRect(x, y, w, h, STAT_FRAME_COLOR);
-  g->drawFastHLine(x + 1, y + 1, w - 2, STAT_BEVEL_WHITE);
-  g->drawFastVLine(x + 1, y + 1, h - 2, STAT_BEVEL_WHITE);
-  g->drawFastHLine(x + 1, y + h - 2, w - 2, STAT_PLATE_DGREY);
-  g->drawFastVLine(x + w - 2, y + 1, h - 2, STAT_PLATE_DGREY);
+  Adafruit_GFX* g = gfx ? gfx : &tft;
+  const int r = UI_PANEL_RADIUS;
+
+  // Soft drop shadow, offset down-right (drawn first, behind the panel).
+  g->fillRoundRect(x + 2, y + 3, w, h, r, UI_SHADOW);
+
+  // Gradient body: fill the rounded rect base colour, then paint lighter->darker
+  // horizontal lines inset by 1px so the rounded border stays clean.
+  g->fillRoundRect(x, y, w, h, r, UI_PANEL_TOP);
+  for (int row = 1; row < h - 1; row++) {
+    uint16_t col = lerp565(UI_PANEL_TOP, UI_PANEL_BOT, (float)row / (h - 1));
+    // Inset the gradient lines so corner rounding (drawn by the border) shows.
+    int inset = (row < r || row > h - 1 - r) ? 2 : 1;
+    g->drawFastHLine(x + inset, y + row, w - 2 * inset, col);
+  }
+
+  // Soft rounded border + 1px top highlight.
+  g->drawRoundRect(x, y, w, h, r, UI_PANEL_BORDER);
+  g->drawFastHLine(x + r, y + 1, w - 2 * r, UI_PANEL_HI);
 }
 
 // One menu row as a beveled plate. Selected rows are a lighter (raised)
@@ -584,16 +691,25 @@ void DisplayManager::drawBevelPanel(int x, int y, int w, int h) {
 // text. Optional right-aligned suffix (e.g. "ON"/"OFF").
 void DisplayManager::drawMenuRow(int x, int y, int w, int h, const char* label, bool selected, const char* suffix) {
   Adafruit_GFX* g = gfx ? gfx : &tft;   // buffered menu -> canvas, else panel
-  uint16_t body   = selected ? MENU_PLATE_LGREY : STAT_PLATE_GREY;
-  uint16_t light  = selected ? STAT_BEVEL_WHITE : MENU_PLATE_LGREY;
-  uint16_t textCol = selected ? MENU_TEXT_DARK : MENU_TEXT_LIGHT;
+  const int rr = 3;                      // small rounded corners for buttons
 
-  g->fillRect(x, y, w, h, body);
-  g->drawRect(x, y, w, h, STAT_FRAME_COLOR);
-  g->drawFastHLine(x + 1, y + 1, w - 2, light);
-  g->drawFastVLine(x + 1, y + 1, h - 2, light);
-  g->drawFastHLine(x + 1, y + h - 2, w - 2, STAT_PLATE_DGREY);
-  g->drawFastVLine(x + w - 2, y + 1, h - 2, STAT_PLATE_DGREY);
+  // Gradient endpoints: selected rows glow with the accent, others use the
+  // panel slate (one shade lighter than the panel body so rows read as raised).
+  uint16_t top = selected ? UI_ACCENT     : UI_PANEL_TOP;
+  uint16_t bot = selected ? UI_PANEL_TOP   : UI_PANEL_BOT;
+  uint16_t textCol = selected ? UI_TEXT : UI_TEXT_MUTED;
+
+  // Soft drop shadow, then the rounded gradient button body.
+  g->fillRoundRect(x + 1, y + 2, w, h, rr, UI_SHADOW);
+  g->fillRoundRect(x, y, w, h, rr, top);
+  for (int row = 1; row < h - 1; row++) {
+    uint16_t col = lerp565(top, bot, (float)row / (h - 1));
+    int inset = (row < rr || row > h - 1 - rr) ? 2 : 1;
+    g->drawFastHLine(x + inset, y + row, w - 2 * inset, col);
+  }
+  g->drawRoundRect(x, y, w, h, rr, UI_PANEL_BORDER);
+  // 1px top highlight on the selected button for extra pop.
+  if (selected) g->drawFastHLine(x + rr, y + 1, w - 2 * rr, UI_PANEL_HI);
 
   g->setTextSize(1);
   g->setTextColor(textCol);
@@ -645,7 +761,35 @@ void DisplayManager::drawMenu(const char* title, const char* const* items, int i
   pushFrame();                           // single blit -> no blink
 }
 
-void DisplayManager::drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp,
+void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
+  // Buffered composite (single blit) so toggling Sound / moving the selection
+  // doesn't blink the whole panel.
+  seedBufferBackground();
+  gfx = &frameBuffer;
+
+  const int pnlX = 8,   pnlY = 30;
+  const int pnlW = 112, pnlH = 68;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  const int itemX = pnlX + 4;
+  const int itemW = pnlW - 8;
+  const int itemH = 15;
+  const int itemY0 = pnlY + 8;
+  const int itemPitch = 20;
+
+  // Row 0: Sound with ON/OFF suffix; Row 1: Back.
+  drawMenuRow(itemX, itemY0, itemW, itemH, "Sound",
+              selectedIndex == 0, isMuted ? "OFF" : "ON");
+  drawMenuRow(itemX, itemY0 + itemPitch, itemW, itemH, "Reset",
+              selectedIndex == 1, nullptr);
+  drawMenuRow(itemX, itemY0 + itemPitch * 2, itemW, itemH, "Back",
+              selectedIndex == 2, nullptr);
+  gfx = nullptr;
+  pushFrame();
+}
+
+void DisplayManager::drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp, int intel, int speed,
+                                   int level, int xp, int xpForNext,
                                    const uint16_t* profileFrame, int profileSize) {
   // Buffered composite (single blit) -> no blink.
   seedBufferBackground();
@@ -675,26 +819,61 @@ void DisplayManager::drawStatsPage(const char* name, int hp, int maxHp, int ap, 
   }
 
   frameBuffer.setTextColor(MENU_TEXT_DARK);
-  frameBuffer.setCursor(pnlX + (pw > 0 ? pw : 0) + 10, pnlY + 20 + ((pw > 0 ? pw : 20) / 2) - 4);
-  frameBuffer.printf("%s", name);
+  frameBuffer.setCursor(pnlX + (pw > 0 ? pw : 0) + 10, pnlY + 20 + ((pw > 0 ? pw : 20) / 2) - 8);
+  // Display the name with a capitalized first letter (registry names are
+  // lowercase, e.g. "koromon" -> "Koromon").
+  if (name && name[0]) {
+    char disp[16];
+    strncpy(disp, name, sizeof(disp) - 1);
+    disp[sizeof(disp) - 1] = '\0';
+    if (disp[0] >= 'a' && disp[0] <= 'z') disp[0] = (char)(disp[0] - 'a' + 'A');
+    frameBuffer.printf("%s", disp);
+  }
+  frameBuffer.setCursor(pnlX + (pw > 0 ? pw : 0) + 10, pnlY + 20 + ((pw > 0 ? pw : 20) / 2) + 2);
+  frameBuffer.printf("Lv %d", level);
 
-  frameBuffer.setCursor(pnlX + 8, pnlY + 60);
-  frameBuffer.printf("HP: %d/%d", hp, maxHp);
-  frameBuffer.setCursor(pnlX + 8, pnlY + 76);
-  frameBuffer.printf("AP: %d", ap);
+  // Stat rows with icons (heart=HP, sword=AP, shield=DP). Icon at the left,
+  // value text to its right.
+  // Stat block: two columns x three rows -> HP, AP, DP (left) / --, INT, SPD (right).
+  // Icons: heart=HP, sword=AP, shield=DP, book=INT (uses sword tint), bolt=SPD.
+  const int c1 = pnlX + 8,  t1 = pnlX + 21;    // left column icon / text
+  const int c2 = pnlX + 60, t2 = pnlX + 73;    // right column icon / text
+  frameBuffer.setTextColor(MENU_TEXT_LIGHT);
+  // Row 1: HP (full width value)
+  drawIcon(ICON_HEART,  c1, pnlY + 52, 10, UI_DANGER);
+  frameBuffer.setCursor(t1, pnlY + 54); frameBuffer.printf("%d/%d", hp, maxHp);
+  // Row 2: AP (left) + INT (right)
+  drawIcon(ICON_SWORD,  c1, pnlY + 64, 10, MENU_TEXT_LIGHT);
+  frameBuffer.setCursor(t1, pnlY + 66); frameBuffer.printf("%d", ap);
+  drawIcon(ICON_BOLT,   c2, pnlY + 64, 10, UI_SPECIAL);   // INT (violet)
+  frameBuffer.setCursor(t2, pnlY + 66); frameBuffer.printf("%d", intel);
+  // Row 3: DP (left) + SPD (right)
+  drawIcon(ICON_SHIELD, c1, pnlY + 76, 10, STAT_ENERGY_COLOR);
+  frameBuffer.setCursor(t1, pnlY + 78); frameBuffer.printf("%d", dp);
+  drawIcon(ICON_BOLT,   c2, pnlY + 76, 10, STAT_HAPPY_COLOR); // SPD (cyan)
+  frameBuffer.setCursor(t2, pnlY + 78); frameBuffer.printf("%d", speed);
+
+  // XP progress bar toward the next level.
   frameBuffer.setCursor(pnlX + 8, pnlY + 92);
-  frameBuffer.printf("DP: %d", dp);
+  frameBuffer.printf("XP: %d/%d", xp, xpForNext);
+  const int xbX = pnlX + 8;
+  const int xbY = pnlY + 102;
+  const int xbW = pnlW - 20;
+  const int xbH = 5;
+  frameBuffer.drawRect(xbX, xbY, xbW, xbH, STAT_FRAME_COLOR);
+  int fillW = (xpForNext > 0) ? ((xbW - 2) * xp) / xpForNext : 0;
+  if (fillW < 0) fillW = 0;
+  if (fillW > xbW - 2) fillW = xbW - 2;
+  if (fillW > 0) frameBuffer.fillRect(xbX + 1, xbY + 1, fillW, xbH - 2, STAT_HAPPY_COLOR);
 
-  frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 14);
+  frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 12);
   frameBuffer.print("OK: Back");
 
   gfx = nullptr;
   pushFrame();
 }
 
-void DisplayManager::drawDigivolutionPage(const DigimonSprites* current, int selectedIndex,
-                                          int maxHp, int ap, int dp, int ageDays,
-                                          int happiness, int hunger) {
+void DisplayManager::drawDigivolutionList(const DigimonSprites* current, int selectedIndex) {
   seedBufferBackground();
   gfx = &frameBuffer;
 
@@ -709,91 +888,168 @@ void DisplayManager::drawDigivolutionPage(const DigimonSprites* current, int sel
   frameBuffer.drawFastHLine(pnlX + 4, pnlY + 15, pnlW - 8, STAT_FRAME_COLOR);
 
   int n = (current && current->evolutions) ? current->evolutionCount : 0;
+  int rowCount = n + 1;   // + "Back"
 
-  if (n == 0) {
-    frameBuffer.setTextColor(MENU_TEXT_DARK);
-    frameBuffer.setCursor(pnlX + 8, pnlY + 46);
-    frameBuffer.print("Final form!");
-    frameBuffer.setCursor(pnlX + 8, pnlY + 60);
-    frameBuffer.print("No evolutions.");
-    frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 14);
-    frameBuffer.print("OK: Back");
-    gfx = nullptr; pushFrame();
-    return;
-  }
+  const int itemX  = pnlX + 4;
+  const int itemW  = pnlW - 8;
+  const int listY0 = pnlY + 20;
+  const int listH  = pnlH - (listY0 - pnlY) - 4;
+  int pitch = listH / rowCount;
+  if (pitch > 34) pitch = 34;
+  if (pitch < 14) pitch = 14;
+  const int rowH = pitch - 2;
 
-  // One row per possible evolution: name + eligibility. Eligible rows are the
-  // lighter selectable plate ('>' + name); locked rows show the first unmet
-  // requirement so the player knows what to train / improve.
-  const int itemX = pnlX + 4;
-  const int itemW = pnlW - 8;
-  const int rowH  = 26;
-  const int y0    = pnlY + 20;
-
+  // One row per possible evolution: portrait + name only, no requirement line
+  // (that detail now lives on drawDigivolutionDetail()).
   for (int i = 0; i < n; i++) {
     const EvolutionReq& req = current->evolutions[i];
-    bool ok = evolutionRequirementsMet(req, maxHp, ap, dp, ageDays, happiness, hunger);
-    int ry = y0 + i * (rowH + 2);
-
-    // Plate: selected + eligible -> raised light plate; otherwise plain.
+    int ry = listY0 + i * pitch;
     bool sel = (i == selectedIndex);
-    uint16_t body  = (sel ? MENU_PLATE_LGREY : STAT_PLATE_GREY);
+
+    uint16_t body = sel ? MENU_PLATE_LGREY : STAT_PLATE_GREY;
     frameBuffer.fillRect(itemX, ry, itemW, rowH, body);
     frameBuffer.drawRect(itemX, ry, itemW, rowH, STAT_FRAME_COLOR);
 
-    frameBuffer.setTextColor(MENU_TEXT_DARK);
-    frameBuffer.setCursor(itemX + 4, ry + 3);
-    frameBuffer.printf("%s%s", sel ? "> " : "  ",
-                       req.target ? req.target->name : "?");
-
-    // Second line: status.
-    frameBuffer.setCursor(itemX + 4, ry + 14);
-    if (ok) {
-      frameBuffer.print("  READY - OK");
-    } else {
-      // Show the first unmet requirement, compactly.
-      char msg[24] = "  need ";
-      if      (req.minMaxHp    > 0 && maxHp     < req.minMaxHp)    snprintf(msg,sizeof(msg),"  HP>=%d", req.minMaxHp);
-      else if (req.minAp       > 0 && ap        < req.minAp)       snprintf(msg,sizeof(msg),"  AP>=%d", req.minAp);
-      else if (req.minDp       > 0 && dp        < req.minDp)       snprintf(msg,sizeof(msg),"  DP>=%d", req.minDp);
-      else if (req.minAgeDays  > 0 && ageDays   < req.minAgeDays)  snprintf(msg,sizeof(msg),"  Age>=%d", req.minAgeDays);
-      else if (req.minHappiness> 0 && happiness < req.minHappiness)snprintf(msg,sizeof(msg),"  Joy>=%d", req.minHappiness);
-      else if (req.minHunger   > 0 && hunger    < req.minHunger)   snprintf(msg,sizeof(msg),"  Fed>=%d", req.minHunger);
-      frameBuffer.print(msg);
+    const uint16_t* prof = req.target ? req.target->profile : nullptr;
+    int ps = req.target ? req.target->profileSize : 0;
+    int drawSize = ps;
+    if (drawSize > rowH - 4) drawSize = rowH - 4;   // shrink to fit a tight row
+    int px = itemX + 3;
+    int py = ry + (rowH - drawSize) / 2;
+    if (prof && drawSize > 0) {
+      for (int row = 0; row < drawSize; row++) {
+        for (int col = 0; col < drawSize; col++) {
+          int srow = (ps == drawSize) ? row : (row * ps) / drawSize;
+          int scol = (ps == drawSize) ? col : (col * ps) / drawSize;
+          uint16_t c = pgm_read_word(&prof[srow * ps + scol]);
+          if (c != TFT_BLACK) frameBuffer.drawPixel(px + col, py + row, c);
+        }
+      }
     }
+
+    frameBuffer.setTextColor(MENU_TEXT_DARK);
+    int nameX = px + (ps > 0 ? drawSize : 0) + 6;
+    frameBuffer.setCursor(nameX, ry + (rowH - 7) / 2);
+    frameBuffer.printf("%s%s", sel ? "> " : "  ", req.target ? req.target->name : "?");
   }
 
-  frameBuffer.setTextColor(MENU_TEXT_DARK);
-  frameBuffer.setCursor(pnlX + 8, pnlY + pnlH - 12);
-  frameBuffer.print("OK pick  L/R move");
+  // "Back" row, always last.
+  {
+    int ry = listY0 + n * pitch;
+    bool sel = (selectedIndex == n) || (n == 0);
+    if (n == 0) {
+      frameBuffer.setTextColor(MENU_TEXT_DARK);
+      frameBuffer.setCursor(itemX + 4, ry - 4);
+      frameBuffer.print("Final form!");
+    }
+    drawMenuRow(itemX, ry, itemW, rowH, "Back", sel);
+  }
 
   gfx = nullptr;
   pushFrame();
 }
 
-void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
-  // Buffered composite (single blit) so toggling Sound / moving the selection
-  // doesn't blink the whole panel.
+void DisplayManager::drawDigivolutionDetail(const DigimonSprites* current, int targetIndex,
+                                            int detailSelection, int maxHp, int ap, int dp,
+                                            int ageDays, int happiness, int hunger,
+                                            int level, int intelligence, int speed) {
   seedBufferBackground();
   gfx = &frameBuffer;
 
-  const int pnlX = 8,   pnlY = 30;
-  const int pnlW = 112, pnlH = 68;
+  const int pnlX = 8,   pnlY = 6;
+  const int pnlW = 112, pnlH = 116;
   drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+  frameBuffer.setTextSize(1);
 
+  const EvolutionReq* req = (current && current->evolutions &&
+                             targetIndex >= 0 && targetIndex < current->evolutionCount)
+                             ? &current->evolutions[targetIndex] : nullptr;
+
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 6, pnlY + 5);
+  frameBuffer.print(req && req->target ? req->target->name : "?");
+  frameBuffer.drawFastHLine(pnlX + 4, pnlY + 15, pnlW - 8, STAT_FRAME_COLOR);
+
+  int ps = 0;
+  if (!req) {
+    frameBuffer.setTextColor(MENU_TEXT_DARK);
+    frameBuffer.setCursor(pnlX + 8, pnlY + 40);
+    frameBuffer.print("No data.");
+  } else {
+    const uint16_t* prof = req->target ? req->target->profile : nullptr;
+    ps = req->target ? req->target->profileSize : 0;
+    int sx = pnlX + 8, sy = pnlY + 20;
+    if (prof && ps > 0) {
+      for (int row = 0; row < ps; row++) {
+        for (int col = 0; col < ps; col++) {
+          uint16_t c = pgm_read_word(&prof[row * ps + col]);
+          if (c != TFT_BLACK) frameBuffer.drawPixel(sx + col, sy + row, c);
+        }
+      }
+    }
+
+    // All requirement lines (not just the first unmet one), colored red when
+    // that specific requirement isn't met yet.
+    int tx = sx + (ps > 0 ? ps + 6 : 0);
+    int ty = pnlY + 20;
+    const int lh = 9;
+    char buf[24];
+    bool any = false;
+
+    if (req->minMaxHp > 0) {
+      snprintf(buf, sizeof(buf), "HP %d/%d", maxHp, req->minMaxHp);
+      frameBuffer.setTextColor(maxHp >= req->minMaxHp ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minAp > 0) {
+      snprintf(buf, sizeof(buf), "AP %d/%d", ap, req->minAp);
+      frameBuffer.setTextColor(ap >= req->minAp ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minDp > 0) {
+      snprintf(buf, sizeof(buf), "DP %d/%d", dp, req->minDp);
+      frameBuffer.setTextColor(dp >= req->minDp ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minAgeDays > 0) {
+      snprintf(buf, sizeof(buf), "Age %d/%d", ageDays, req->minAgeDays);
+      frameBuffer.setTextColor(ageDays >= req->minAgeDays ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minHappiness > 0) {
+      snprintf(buf, sizeof(buf), "Joy %d/%d", happiness, req->minHappiness);
+      frameBuffer.setTextColor(happiness >= req->minHappiness ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minHunger > 0) {
+      snprintf(buf, sizeof(buf), "Fed %d/%d", hunger, req->minHunger);
+      frameBuffer.setTextColor(hunger >= req->minHunger ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minLevel > 0) {
+      snprintf(buf, sizeof(buf), "Lv %d/%d", level, req->minLevel);
+      frameBuffer.setTextColor(level >= req->minLevel ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (req->minIntelligence > 0) {
+      snprintf(buf, sizeof(buf), "INT %d/%d", intelligence, req->minIntelligence);
+      frameBuffer.setTextColor(intelligence >= req->minIntelligence ? MENU_TEXT_DARK : TFT_RED);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print(buf); ty += lh; any = true;
+    }
+    if (!any) {
+      frameBuffer.setTextColor(MENU_TEXT_DARK);
+      frameBuffer.setCursor(tx, ty); frameBuffer.print("No requirements");
+    }
+  }
+
+  // Two selectable rows: "Digivolve!" then "Back".
   const int itemX = pnlX + 4;
   const int itemW = pnlW - 8;
-  const int itemH = 15;
-  const int itemY0 = pnlY + 8;
-  const int itemPitch = 20;
+  const int itemH = 14;
+  const int rowY0 = pnlY + pnlH - itemH * 2 - 6;
+  drawMenuRow(itemX, rowY0,            itemW, itemH, "Digivolve!", detailSelection == 0);
+  drawMenuRow(itemX, rowY0 + itemH + 2, itemW, itemH, "Back",       detailSelection == 1);
 
-  // Row 0: Sound with ON/OFF suffix; Row 1: Back.
-  drawMenuRow(itemX, itemY0, itemW, itemH, "Sound",
-              selectedIndex == 0, isMuted ? "OFF" : "ON");
-  drawMenuRow(itemX, itemY0 + itemPitch, itemW, itemH, "Reset",
-              selectedIndex == 1, nullptr);
-  drawMenuRow(itemX, itemY0 + itemPitch * 2, itemW, itemH, "Back",
-              selectedIndex == 2, nullptr);
   gfx = nullptr;
   pushFrame();
 }
@@ -933,7 +1189,7 @@ void DisplayManager::drawDialog(const char* speaker, const char* text,
   // Options as selectable rows near the bottom of the panel.
   const int itemX = pnlX + 4;
   const int itemW = pnlW - 8;
-  const int itemH = 12;
+  const int itemH = 11;
   int optY = pnlY + pnlH - optionCount * (itemH + 2) - 2;
   for (int i = 0; i < optionCount; i++) {
     drawMenuRow(itemX, optY + i * (itemH + 2), itemW, itemH,
@@ -987,4 +1243,379 @@ void DisplayManager::enterScreensaver() {
 
 void DisplayManager::exitScreensaver(int hunger, int happiness, int energy) {
   forceFullRedraw(hunger, happiness, energy); // repaint everything
+}
+
+
+// ==========================================================================
+//  EGG SELECT (first run). Placeholder art: 7 distinctly-coloured egg shapes
+//  in a row; the selected one is enlarged with a yellow outline. Swap in real
+//  egg sprites later by drawing them here instead of the coloured ellipses.
+// ==========================================================================
+void DisplayManager::drawEggSelect(int selected, int count, const char* label, int frame) {
+  seedBufferBackground();
+  gfx = &frameBuffer;
+
+  const int pnlX = 4, pnlY = 4, pnlW = 120, pnlH = 120;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  // Title.
+  frameBuffer.setTextSize(1);
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 22, pnlY + 6);
+  frameBuffer.print("Choose an egg");
+  frameBuffer.drawFastHLine(pnlX + 6, pnlY + 16, pnlW - 12, STAT_FRAME_COLOR);
+
+  if (count < 1) { gfx = nullptr; pushFrame(); return; }
+
+  // ---- CAROUSEL of real egg sprites -------------------------------------
+  // One big egg centred (animated through its 3 wobble frames); the previous
+  // and next eggs peek in on each side (static frame 0). Eggs are composited
+  // straight from PROGMEM into the canvas (transparent black = show-through),
+  // the SAME path the NPC/pet use -- so colours match and there is no
+  // GFXcanvas16 byte-order issue.
+  const int S      = EGG_SPRITE_SIZE;        // 32
+  const int cxMid  = pnlX + pnlW / 2;
+  const int cyEgg  = pnlY + 58;              // egg vertical centre
+  const int sideDX = 40;                     // how far the side eggs sit out
+
+  int prev = (selected - 1 + count) % count;
+  int next = (selected + 1) % count;
+
+  // Draw one egg frame centred at (cx,cy). Pixels are clipped to the panel
+  // interior so a side egg that overhangs the bevel doesn't spill outside.
+  auto drawEgg = [&](const uint16_t* fr, int cx, int cy) {
+    if (!fr) return;
+    int ox = cx - S / 2, oy = cy - S / 2;
+    for (int row = 0; row < S; row++) {
+      int py = oy + row;
+      if (py <= pnlY + 17 || py >= pnlY + pnlH - 1) continue;   // keep off title/border
+      for (int col = 0; col < S; col++) {
+        int px = ox + col;
+        if (px <= pnlX || px >= pnlX + pnlW - 1) continue;
+        uint16_t cpx = pgm_read_word(&fr[row * S + col]);
+        if (cpx != TFT_BLACK) frameBuffer.drawPixel(px, py, cpx);
+      }
+    }
+  };
+
+  // Side eggs first (static), so the centre egg overlaps them.
+  drawEgg(EGG_FRAMES[prev][0], cxMid - sideDX, cyEgg);
+  drawEgg(EGG_FRAMES[next][0], cxMid + sideDX, cyEgg);
+
+  // Centre (selected) egg, animated: cycle its 3 frames.
+  int f = frame % EGG_FRAME_COUNT;
+  if (f < 0) f = 0;
+  drawEgg(EGG_FRAMES[selected][f], cxMid, cyEgg);
+
+  // ---- Navigation arrows (only when there's more than one egg) -----------
+  if (count > 1) {
+    int ay = cyEgg;
+    int lx = pnlX + 6;
+    frameBuffer.fillTriangle(lx + 6, ay - 6, lx + 6, ay + 6, lx, ay, MENU_TEXT_DARK);
+    int rx = pnlX + pnlW - 6;
+    frameBuffer.fillTriangle(rx - 6, ay - 6, rx - 6, ay + 6, rx, ay, MENU_TEXT_DARK);
+  }
+
+  // Selected egg's starter label, centred below the carousel.
+  if (label && label[0]) {
+    int len = 0; while (label[len]) len++;
+    int tw = len * 6;
+    frameBuffer.setTextColor(MENU_TEXT_DARK);
+    frameBuffer.setCursor(pnlX + (pnlW - tw) / 2, pnlY + 92);
+    frameBuffer.print(label);
+  }
+
+  // Footer hint.
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 10, pnlY + pnlH - 12);
+  frameBuffer.print("L/R choose  OK hatch");
+
+  gfx = nullptr;
+  pushFrame();
+}
+
+// Blit a square sprite frame into an offscreen canvas (RAM), black treated as
+// transparent (same convention as the profile sprite). Static file-local
+// helper ported from the original project for drawCombatScene().
+static void blitSpriteToBuffer(GFXcanvas16& fb, int dx, int dy, int size,
+                               const uint16_t* frame, bool flip, uint16_t tint = 0) {
+  if (!frame || size <= 0) return;
+  for (int row = 0; row < size; row++) {
+    for (int col = 0; col < size; col++) {
+      int srcCol = flip ? (size - 1 - col) : col;
+      uint16_t c = pgm_read_word(&frame[row * size + srcCol]);
+      if (c != TFT_BLACK) {
+        // tint != 0 -> draw the OPAQUE pixels as the tint colour (hit-flash
+        // silhouette that hugs the sprite shape, not a box filter).
+        fb.drawPixel(dx + col, dy + row, tint ? tint : c);
+      }
+    }
+  }
+}
+
+// Digimon-World-style grey-plate value bar: a bevelled grey plate with a thin
+// 2px colored fill lane (light top row + base bottom row) -- the SAME visual
+// language as the main-screen stat bars (see drawStatBar/drawStatusPanelChrome).
+// Scales `value` out of `maxValue` across the fill lane. Draws into whichever
+// target the grey-plate helpers use (frameBuffer when gfx is set, else the panel
+// via the g=... pattern used elsewhere). Here we draw straight into frameBuffer
+// since the combat scene composites into it.
+void DisplayManager::drawPlateBar(int x, int y, int w, int value, int maxValue, uint16_t barColor) {
+  const int h = STAT_PLATE_H;                 // 6px plate, matches main screen
+  // Plate body + black frame.
+  frameBuffer.fillRect(x + 1, y + 1, w - 2, h - 2, STAT_PLATE_GREY);
+  frameBuffer.drawFastHLine(x + 1, y,         w - 2, STAT_FRAME_COLOR);
+  frameBuffer.drawFastHLine(x + 1, y + h - 1, w - 2, STAT_FRAME_COLOR);
+  frameBuffer.drawFastVLine(x,         y + 1, h - 2, STAT_FRAME_COLOR);
+  frameBuffer.drawFastVLine(x + w - 1, y + 1, h - 2, STAT_FRAME_COLOR);
+  // White bevel on the top/left, dark-grey shadow bottom/right.
+  frameBuffer.drawFastHLine(x + 1, y + 1,     2, STAT_BEVEL_WHITE);
+  frameBuffer.drawPixel(x + 1, y + 2, STAT_BEVEL_WHITE);
+  frameBuffer.drawFastHLine(x + 1, y + h - 2, w - 2, STAT_PLATE_DGREY);
+
+  // 2px fill lane inset inside the plate (same construction as drawStatBar).
+  int laneX = x + 2;
+  int laneW = w - 4;
+  int laneY = y + 2;
+  frameBuffer.fillRect(laneX, laneY, laneW, 2, STAT_PLATE_GREY);   // empty = grey
+  if (maxValue < 1) maxValue = 1;
+  int fillW = (laneW * value) / maxValue;
+  if (fillW < 0) fillW = 0;
+  if (fillW > laneW) fillW = laneW;
+  if (fillW > 0) {
+    uint16_t hi = barColor | STAT_HILITE_OR;                  // light top shade
+    frameBuffer.drawFastHLine(laneX, laneY,     fillW, hi);
+    frameBuffer.drawFastHLine(laneX, laneY + 1, fillW, barColor);
+  }
+}
+
+// Short tag + accent colour for a Digimon attribute type (combat badges).
+static const char* typeTag(DigimonType t) {
+  switch (t) { case TYPE_VACCINE: return "Vc"; case TYPE_VIRUS: return "Vi";
+               default: return "Da"; }
+}
+static uint16_t typeColor(DigimonType t) {
+  switch (t) { case TYPE_VACCINE: return STAT_ENERGY_COLOR;   // blue-ish
+               case TYPE_VIRUS:   return TFT_RED;
+               default:           return STAT_HAPPY_COLOR; }   // yellow for Data
+}
+static IconId typeIcon(DigimonType t) {
+  switch (t) { case TYPE_VACCINE: return ICON_T_VACCINE;
+               case TYPE_VIRUS:   return ICON_T_VIRUS;
+               default:           return ICON_T_DATA; }
+}
+
+void DisplayManager::drawCombatScene(const Combat& combat) {
+  seedBufferBackground();
+  gfx = &frameBuffer;
+  frameBuffer.setTextSize(1);
+
+  const Enemy* enemy = combat.getEnemy();
+  CombatPhase phase = combat.getPhase();
+
+  // ---- Enemy header: name + HP bar ----------------------------------------
+  frameBuffer.setTextColor(TFT_WHITE);
+  frameBuffer.setCursor(4, 3);
+  frameBuffer.printf("%s", enemy ? enemy->name : "Enemy");
+  // Enemy type badge (small coloured tag) at the right end of the HP-bar row.
+  if (enemy && enemy->art) {
+    DigimonType et = enemy->art->type;
+    int bx = 4 + 80 + 3;                 // just past the 80px enemy HP bar
+    drawIcon(typeIcon(et), bx, 11, 10, typeColor(et));
+  }
+
+  const int eBarX = 4, eBarY = 13, eBarW = 80;
+  drawPlateBar(eBarX, eBarY, eBarW, combat.getDisplayEnemyHp(), combat.getEnemyMaxHp(), TFT_RED);
+
+  // ---- Enemy sprite (upper-right) -----------------------------------------
+  if (enemy && enemy->art && enemy->art->walk && enemy->art->walkCount > 0) {
+    int esize = enemy->art->spriteSize;
+    int ex = SCREEN_WIDTH - esize - 2;
+    int ey = 20;
+    // Enemy faces LEFT (toward the player). walk[0] drawn flipped to face left.
+    // Hit flash: draw the sprite as a solid white silhouette on impact (hugs
+    // its shape); otherwise draw it normally.
+    uint16_t etint = (combat.getFlashTarget() == 2) ? 0xFFFF : 0;
+    blitSpriteToBuffer(frameBuffer, ex, ey, esize, enemy->art->walk[0], false, etint);
+  }
+
+  // ---- Enemy intent telegraph ---------------------------------------------
+  // During the player's decision phases, show a small icon above the enemy
+  // hinting its NEXT move so Guard/timing choices are informed:
+  //   ATTACK = sword  |  HEAVY = double chevron (big hit)  |  GUARD = shield.
+  if (phase == CP_PLAYER_MENU || phase == CP_PLAYER_TIMING) {
+    // Labeled intent chip, placed BELOW the enemy HP bar on the LEFT so it
+    // never overlaps the enemy sprite (which occupies the upper-right).
+    EnemyIntent intent = combat.getEnemyIntent();
+    const int cx = 4, cy = 22, cw = 58, ch = 13;
+    frameBuffer.fillRoundRect(cx, cy, cw, ch, 3, STAT_PLATE_GREY);
+    frameBuffer.drawRoundRect(cx, cy, cw, ch, 3, STAT_FRAME_COLOR);
+    frameBuffer.drawFastHLine(cx + 3, cy + 1, cw - 6, STAT_BEVEL_WHITE);  // top highlight
+
+    int ix = cx + 8, iy = cy + 6;     // icon anchor (centre)
+    const char* label;
+    uint16_t icol;
+    if (intent == EI_GUARD) {
+      icol = STAT_ENERGY_COLOR; label = "Guard";
+      frameBuffer.fillTriangle(ix - 3, iy - 3, ix + 3, iy - 3, ix, iy + 3, icol);  // shield
+    } else if (intent == EI_HEAVY) {
+      icol = TFT_RED; label = "Heavy!";
+      for (int k = 0; k < 2; k++) {   // double chevron
+        int bx = ix - 3 + k * 3;
+        frameBuffer.drawLine(bx, iy - 3, bx + 3, iy, icol);
+        frameBuffer.drawLine(bx + 3, iy, bx, iy + 3, icol);
+      }
+    } else {
+      icol = MENU_TEXT_LIGHT; label = "Attack";
+      frameBuffer.drawLine(ix - 3, iy + 3, ix + 3, iy - 3, icol);  // sword blade
+      frameBuffer.drawLine(ix - 3, iy + 1, ix - 1, iy + 3, icol);  // guard
+    }
+    frameBuffer.setTextColor(MENU_TEXT_LIGHT);
+    frameBuffer.setCursor(cx + 16, cy + 3);
+    frameBuffer.print(label);
+  }
+
+  // ---- Player sprite (lower-left) -----------------------------------------
+  const DigimonSprites* pArt = combat.getPlayerArt();
+  if (pArt) {
+    int psize = pArt->spriteSize;
+    int px = 4;
+    // Keep the player's feet just above the lower command panel (top = 76).
+    int py = 74 - psize;
+    if (py < 22) py = 22;
+    // During the player's hit resolve, show an attack frame if the Digimon
+    // ships one; otherwise fall back to walk[0].
+    const uint16_t* pframe = nullptr;
+    if (phase == CP_PLAYER_RESOLVE && pArt->attack && pArt->attackCount > 0) {
+      pframe = pArt->attack[0];
+    } else if (pArt->walk && pArt->walkCount > 0) {
+      pframe = pArt->walk[0];
+    }
+    // Player faces RIGHT (toward the enemy): flip the sprite.
+    uint16_t ptint = (combat.getFlashTarget() == 1) ? 0xFFFF : 0;
+    blitSpriteToBuffer(frameBuffer, px, py, psize, pframe, true, ptint);
+  }
+
+  // ---- Lower command panel: message, HP, charge, and the action row -------
+  // Taller panel using the full bottom of the screen (76..128) with each
+  // element on its own vertical band so nothing overlaps (the old 40px panel
+  // crammed the menu/timing on top of the footer).
+  const int pnlX = 2, pnlY = 76, pnlW = 124, pnlH = SCREEN_HEIGHT - pnlY - 1;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  // Message line (top band).
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 5, pnlY + 4);
+  frameBuffer.printf("%s", combat.getMessage());
+
+  // Player HP bar + numeric (second band).
+  const int pBarX = pnlX + 5, pBarY = pnlY + 14, pBarW = 70;
+  drawPlateBar(pBarX, pBarY, pBarW, combat.getDisplayPlayerHp(), combat.getPlayerMaxHp(), STAT_HAPPY_COLOR);
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pBarX + pBarW + 4, pBarY - 1);
+  frameBuffer.printf("%d", combat.getPlayerHp());
+  // Player type badge below the HP number.
+  const DigimonSprites* pa = combat.getPlayerArt();
+  if (pa) {
+    drawIcon(typeIcon(pa->type), pBarX + pBarW + 4, pBarY + 7, 10, typeColor(pa->type));
+  }
+
+  // Charge pips (third band), to the RIGHT of the HP bar so they never touch
+  // the action row below.
+  int chg = combat.getCharge();
+  int chgMax = combat.getChargeMax();
+  for (int i = 0; i < chgMax; i++) {
+    int cx = pBarX + i * 8;
+    int cy = pBarY + 8;
+    frameBuffer.drawRect(cx, cy, 6, 5, STAT_FRAME_COLOR);
+    if (i < chg) frameBuffer.fillRect(cx + 1, cy + 1, 4, 3, STAT_ENERGY_COLOR);
+  }
+
+  // ---- Action row (bottom band): menu OR timing bar. No footer -- the action
+  // labels are self-explanatory, and a footer here collided with this row. ----
+  const int rowY = pnlY + 34;
+  if (phase == CP_PLAYER_MENU) {
+    const char* acts[3] = { "Atk", "Grd", "Spc" };
+    int sel = combat.getMenuSelection();
+    for (int i = 0; i < 3; i++) {
+      int ax = pnlX + 4 + i * 40;
+      int aw = 38, ah = 12;
+      bool on = (i == sel);
+      bool locked = (i == 2 && chg < chgMax);
+      // Same rounded + shadow + gradient look as the menu buttons.
+      drawMenuRow(ax, rowY, aw, ah, acts[i], on);
+      // Dim a locked Special by overprinting its label in the muted colour.
+      if (locked) {
+        frameBuffer.setTextColor(UI_TEXT_MUTED);
+        frameBuffer.setCursor(ax + 5, rowY + (ah - 7) / 2);
+        frameBuffer.printf("%s%s", on ? "> " : "  ", acts[i]);
+      }
+    }
+  } else if (phase == CP_PLAYER_TIMING) {
+    const int tX = pnlX + 5, tY = rowY + 1, tW = pnlW - 10, tH = 9;
+    frameBuffer.drawRect(tX, tY, tW, tH, STAT_FRAME_COLOR);
+    int goodLo = tX + 1 + ((tW - 2) * 30) / 100;
+    int goodHi = tX + 1 + ((tW - 2) * 70) / 100;
+    int perfLo = tX + 1 + ((tW - 2) * 44) / 100;
+    int perfHi = tX + 1 + ((tW - 2) * 56) / 100;
+    frameBuffer.fillRect(goodLo, tY + 1, goodHi - goodLo, tH - 2, MENU_PLATE_LGREY);
+    frameBuffer.fillRect(perfLo, tY + 1, perfHi - perfLo, tH - 2, STAT_HAPPY_COLOR);
+    int mTotal = combat.getTimingMax() > 0 ? combat.getTimingMax() : 1;
+    int mx = tX + 1 + ((tW - 2) * combat.getTimingPos()) / mTotal;
+    frameBuffer.fillRect(mx - 1, tY - 1, 3, tH + 2, TFT_RED);
+  } else if (phase == CP_ENEMY_PARRY) {
+    // Directional parry prompt: a big arrow showing WHICH button to press to
+    // block the incoming hit (LEFT / RIGHT / OK-overhead).
+    ParryDir dir = combat.getParryDir();
+    int cxp = pnlX + pnlW / 2;          // centre of the action row
+    int cyp = rowY + 6;
+    frameBuffer.setTextColor(TFT_RED);
+    frameBuffer.setCursor(pnlX + 4, rowY + 2);
+    frameBuffer.print("BLOCK!");
+    // Arrow glyph drawn as a filled triangle pointing the parry direction.
+    int ax = cxp + 18;                  // arrow sits right of the BLOCK! text
+    if (dir == PARRY_LEFT) {
+      frameBuffer.fillTriangle(ax + 8, cyp - 6, ax + 8, cyp + 6, ax, cyp, TFT_RED);
+    } else if (dir == PARRY_RIGHT) {
+      frameBuffer.fillTriangle(ax, cyp - 6, ax, cyp + 6, ax + 8, cyp, TFT_RED);
+    } else { // PARRY_OVER -> press OK; draw an up chevron + "OK"
+      frameBuffer.fillTriangle(ax, cyp + 5, ax + 8, cyp + 5, ax + 4, cyp - 5, TFT_RED);
+      frameBuffer.setTextColor(MENU_TEXT_DARK);
+      frameBuffer.setCursor(ax + 12, rowY + 2);
+      frameBuffer.print("OK");
+    }
+  }
+
+  // ---- Damage number pop: a floating "-N" that rises & fades near the victim.
+  int popAge = combat.getPopAge();
+  if (popAge >= 0) {
+    const char* pt = combat.getPopText();
+    int rise = popAge / 60;                 // rises ~1px per 60ms
+    bool blink = (popAge / 90) % 2 == 0;    // simple fade via blink near the end
+    if (popAge < 500 || blink) {
+      int tx, ty;
+      if (combat.getPopTarget() == 2) { tx = SCREEN_WIDTH - 34; ty = 34 - rise; }  // over enemy
+      else                            { tx = 10;                ty = 60 - rise; }  // over player
+      frameBuffer.setTextSize(1);
+      // outline for readability, then the number in a punchy colour.
+      frameBuffer.setTextColor(TFT_BLACK);
+      frameBuffer.setCursor(tx + 1, ty + 1);  frameBuffer.print(pt);
+      frameBuffer.setTextColor(combat.getPopTarget() == 2 ? 0xFFE0 : UI_DANGER);
+      frameBuffer.setCursor(tx, ty);          frameBuffer.print(pt);
+    }
+  }
+
+  gfx = nullptr;
+  // Cheap heavy-hit shake: nudge the single frame-buffer blit by a few px.
+  // Reuses the existing origin offset -> just ONE push at an offset, no
+  // recomposite loop (true multi-frame shake was rejected as too costly).
+  if (combat.getShake()) {
+    int ox = originX, oy = originY;
+    int jitter = (millis() / 40) % 2 ? 2 : -2;
+    originX += jitter; originY += (jitter > 0 ? -1 : 1);
+    pushFrame();
+    originX = ox; originY = oy;
+  } else {
+    pushFrame();
+  }
 }
