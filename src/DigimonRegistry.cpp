@@ -1,4 +1,40 @@
 #include "DigimonRegistry.h"
+#include "wormmonSprites.h"
+#include "veemonSprites.h"
+#include "tentomonSprites.h"
+#include "tapirmonSprites.h"
+#include "snowagumonSprites.h"
+#include "shadowtoyagumonSprites.h"
+#include "salamonSprites.h"
+#include "renamonSprites.h"
+#include "penguinmonSprites.h"
+#include "pawnchessmonblackSprites.h"
+#include "pawnchessmon_whiteSprites.h"
+#include "patamonSprites.h"
+#include "palmonSprites.h"
+#include "otamamonSprites.h"
+#include "muchomonSprites.h"
+#include "lopmonSprites.h"
+#include "lalamonSprites.h"
+#include "kumamonSprites.h"
+#include "kudamonSprites.h"
+#include "kotemonSprites.h"
+#include "keramonSprites.h"
+#include "impmonSprites.h"
+#include "hawkmonSprites.h"
+#include "guilmonSprites.h"
+#include "gotsumonSprites.h"
+#include "goburimonSprites.h"
+#include "gaomonSprites.h"
+#include "gabumonSprites.h"
+#include "floramonSprites.h"
+#include "dorumonSprites.h"
+#include "demidevimonSprites.h"
+#include "biyomonSprites.h"
+#include "betamonSprites.h"
+#include "aruraumonSprites.h"
+#include "armadillomonSprites.h"
+#include "agumonSprites.h"
 #include "chibomonSprites.h"
 #include "tokomonSprites.h"
 #include "dorimonSprites.h"
@@ -315,8 +351,908 @@ const DigimonSprites DIGIMON_chibomon = {
 };
 // <<< AUTO-REGISTER chibomon END
 
+// >>> AUTO-REGISTER agumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_agumon = {
+  "agumon",
+  AGUMON_SPRITE_SIZE,
+  AGUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  agumon_walk_frames,      3,   // walk
+  agumon_walkback_frames,  3,   // walkBack
+  agumon_walk_frames,     3,   // sleep
+  agumon_happy_frames,     3,   // eat
+  agumon_happy_frames,     3,   // play
+  agumon_walk_frames,      3,   // sad
+  agumon_walk_frames,     3,   // dead
+  agumon_happy_frames,     3,   // happy
+  agumon_attack_frames,    5,   // attack
+  agumon_profile,               // profile
+  AGUMON_ATTACK_W, AGUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER agumon END
+
+// >>> AUTO-REGISTER armadillomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_armadillomon = {
+  "armadillomon",
+  ARMADILLOMON_SPRITE_SIZE,
+  ARMADILLOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  armadillomon_walk_frames,      3,   // walk
+  armadillomon_walkback_frames,  3,   // walkBack
+  armadillomon_walk_frames,     3,   // sleep
+  armadillomon_happy_frames,     3,   // eat
+  armadillomon_happy_frames,     3,   // play
+  armadillomon_walk_frames,      3,   // sad
+  armadillomon_walk_frames,     3,   // dead
+  armadillomon_happy_frames,     3,   // happy
+  armadillomon_attack_frames,    3,   // attack
+  armadillomon_profile,               // profile
+  ARMADILLOMON_ATTACK_W, ARMADILLOMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER armadillomon END
+
+// >>> AUTO-REGISTER aruraumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_aruraumon = {
+  "aruraumon",
+  ARURAUMON_SPRITE_SIZE,
+  ARURAUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  aruraumon_walk_frames,      3,   // walk
+  aruraumon_walkback_frames,  3,   // walkBack
+  aruraumon_walk_frames,     3,   // sleep
+  aruraumon_happy_frames,     3,   // eat
+  aruraumon_happy_frames,     3,   // play
+  aruraumon_walk_frames,      3,   // sad
+  aruraumon_walk_frames,     3,   // dead
+  aruraumon_happy_frames,     3,   // happy
+  aruraumon_attack_frames,    3,   // attack
+  aruraumon_profile,               // profile
+  ARURAUMON_ATTACK_W, ARURAUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER aruraumon END
+
+// >>> AUTO-REGISTER betamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_betamon = {
+  "betamon",
+  BETAMON_SPRITE_SIZE,
+  BETAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  betamon_walk_frames,      3,   // walk
+  betamon_walkback_frames,  3,   // walkBack
+  betamon_walk_frames,     3,   // sleep
+  betamon_happy_frames,     3,   // eat
+  betamon_happy_frames,     3,   // play
+  betamon_walk_frames,      3,   // sad
+  betamon_walk_frames,     3,   // dead
+  betamon_happy_frames,     3,   // happy
+  betamon_attack_frames,    4,   // attack
+  betamon_profile,               // profile
+  BETAMON_ATTACK_W, BETAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER betamon END
+
+// >>> AUTO-REGISTER biyomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_biyomon = {
+  "biyomon",
+  BIYOMON_SPRITE_SIZE,
+  BIYOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  biyomon_walk_frames,      3,   // walk
+  biyomon_walkback_frames,  3,   // walkBack
+  biyomon_walk_frames,     3,   // sleep
+  biyomon_happy_frames,     3,   // eat
+  biyomon_happy_frames,     3,   // play
+  biyomon_walk_frames,      3,   // sad
+  biyomon_walk_frames,     3,   // dead
+  biyomon_happy_frames,     3,   // happy
+  biyomon_attack_frames,    3,   // attack
+  biyomon_profile,               // profile
+  BIYOMON_ATTACK_W, BIYOMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER biyomon END
+
+// >>> AUTO-REGISTER demidevimon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_demidevimon = {
+  "demidevimon",
+  DEMIDEVIMON_SPRITE_SIZE,
+  DEMIDEVIMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  demidevimon_walk_frames,      3,   // walk
+  demidevimon_walkback_frames,  3,   // walkBack
+  demidevimon_walk_frames,     3,   // sleep
+  demidevimon_happy_frames,     3,   // eat
+  demidevimon_happy_frames,     3,   // play
+  demidevimon_walk_frames,      3,   // sad
+  demidevimon_walk_frames,     3,   // dead
+  demidevimon_happy_frames,     3,   // happy
+  demidevimon_attack_frames,    4,   // attack
+  demidevimon_profile,               // profile
+  DEMIDEVIMON_ATTACK_W, DEMIDEVIMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER demidevimon END
+
+// >>> AUTO-REGISTER dorumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_dorumon = {
+  "dorumon",
+  DORUMON_SPRITE_SIZE,
+  DORUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  dorumon_walk_frames,      3,   // walk
+  dorumon_walkback_frames,  3,   // walkBack
+  dorumon_walk_frames,     3,   // sleep
+  dorumon_happy_frames,     3,   // eat
+  dorumon_happy_frames,     3,   // play
+  dorumon_walk_frames,      3,   // sad
+  dorumon_walk_frames,     3,   // dead
+  dorumon_happy_frames,     3,   // happy
+  dorumon_attack_frames,    3,   // attack
+  dorumon_profile,               // profile
+  DORUMON_ATTACK_W, DORUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER dorumon END
+
+// >>> AUTO-REGISTER floramon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_floramon = {
+  "floramon",
+  FLORAMON_SPRITE_SIZE,
+  FLORAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  floramon_walk_frames,      3,   // walk
+  floramon_walkback_frames,  3,   // walkBack
+  floramon_walk_frames,     3,   // sleep
+  floramon_happy_frames,     3,   // eat
+  floramon_happy_frames,     3,   // play
+  floramon_walk_frames,      3,   // sad
+  floramon_walk_frames,     3,   // dead
+  floramon_happy_frames,     3,   // happy
+  floramon_attack_frames,    3,   // attack
+  floramon_profile,               // profile
+  FLORAMON_ATTACK_W, FLORAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER floramon END
+
+// >>> AUTO-REGISTER gabumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_gabumon = {
+  "gabumon",
+  GABUMON_SPRITE_SIZE,
+  GABUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  gabumon_walk_frames,      3,   // walk
+  gabumon_walkback_frames,  3,   // walkBack
+  gabumon_walk_frames,     3,   // sleep
+  gabumon_happy_frames,     3,   // eat
+  gabumon_happy_frames,     3,   // play
+  gabumon_walk_frames,      3,   // sad
+  gabumon_walk_frames,     3,   // dead
+  gabumon_happy_frames,     3,   // happy
+  gabumon_attack_frames,    3,   // attack
+  gabumon_profile,               // profile
+  GABUMON_ATTACK_W, GABUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER gabumon END
+
+// >>> AUTO-REGISTER gaomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_gaomon = {
+  "gaomon",
+  GAOMON_SPRITE_SIZE,
+  GAOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  gaomon_walk_frames,      3,   // walk
+  gaomon_walkback_frames,  3,   // walkBack
+  gaomon_walk_frames,     3,   // sleep
+  gaomon_happy_frames,     2,   // eat
+  gaomon_happy_frames,     2,   // play
+  gaomon_walk_frames,      3,   // sad
+  gaomon_walk_frames,     3,   // dead
+  gaomon_happy_frames,     2,   // happy
+  gaomon_attack_frames,    3,   // attack
+  gaomon_profile,               // profile
+  GAOMON_ATTACK_W, GAOMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER gaomon END
+
+// >>> AUTO-REGISTER goburimon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_goburimon = {
+  "goburimon",
+  GOBURIMON_SPRITE_SIZE,
+  GOBURIMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  goburimon_walk_frames,      3,   // walk
+  goburimon_walkback_frames,  3,   // walkBack
+  goburimon_walk_frames,     3,   // sleep
+  goburimon_happy_frames,     3,   // eat
+  goburimon_happy_frames,     3,   // play
+  goburimon_walk_frames,      3,   // sad
+  goburimon_walk_frames,     3,   // dead
+  goburimon_happy_frames,     3,   // happy
+  goburimon_attack_frames,    3,   // attack
+  goburimon_profile,               // profile
+  GOBURIMON_ATTACK_W, GOBURIMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER goburimon END
+
+// >>> AUTO-REGISTER gotsumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_gotsumon = {
+  "gotsumon",
+  GOTSUMON_SPRITE_SIZE,
+  GOTSUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  gotsumon_walk_frames,      3,   // walk
+  gotsumon_walkback_frames,  3,   // walkBack
+  gotsumon_walk_frames,     3,   // sleep
+  gotsumon_happy_frames,     3,   // eat
+  gotsumon_happy_frames,     3,   // play
+  gotsumon_walk_frames,      3,   // sad
+  gotsumon_walk_frames,     3,   // dead
+  gotsumon_happy_frames,     3,   // happy
+  gotsumon_attack_frames,    3,   // attack
+  gotsumon_profile,               // profile
+  GOTSUMON_ATTACK_W, GOTSUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER gotsumon END
+
+// >>> AUTO-REGISTER guilmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_guilmon = {
+  "guilmon",
+  GUILMON_SPRITE_SIZE,
+  GUILMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  guilmon_walk_frames,      4,   // walk
+  guilmon_walkback_frames,  4,   // walkBack
+  guilmon_walk_frames,     4,   // sleep
+  guilmon_walk_frames,     4,   // eat
+  guilmon_walk_frames,     4,   // play
+  guilmon_walk_frames,      4,   // sad
+  guilmon_walk_frames,     4,   // dead
+  guilmon_walk_frames,     4,   // happy
+  guilmon_attack_frames,    3,   // attack
+  nullptr,               // profile
+  GUILMON_ATTACK_W, GUILMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER guilmon END
+
+// >>> AUTO-REGISTER hawkmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_hawkmon = {
+  "hawkmon",
+  HAWKMON_SPRITE_SIZE,
+  HAWKMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  hawkmon_walk_frames,      3,   // walk
+  hawkmon_walkback_frames,  3,   // walkBack
+  hawkmon_walk_frames,     3,   // sleep
+  hawkmon_happy_frames,     3,   // eat
+  hawkmon_happy_frames,     3,   // play
+  hawkmon_walk_frames,      3,   // sad
+  hawkmon_walk_frames,     3,   // dead
+  hawkmon_happy_frames,     3,   // happy
+  hawkmon_attack_frames,    3,   // attack
+  hawkmon_profile,               // profile
+  HAWKMON_ATTACK_W, HAWKMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER hawkmon END
+
+// >>> AUTO-REGISTER impmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_impmon = {
+  "impmon",
+  IMPMON_SPRITE_SIZE,
+  IMPMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  impmon_walk_frames,      3,   // walk
+  impmon_walkback_frames,  3,   // walkBack
+  impmon_walk_frames,     3,   // sleep
+  impmon_happy_frames,     3,   // eat
+  impmon_happy_frames,     3,   // play
+  impmon_walk_frames,      3,   // sad
+  impmon_walk_frames,     3,   // dead
+  impmon_happy_frames,     3,   // happy
+  impmon_attack_frames,    3,   // attack
+  impmon_profile,               // profile
+  IMPMON_ATTACK_W, IMPMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER impmon END
+
+// >>> AUTO-REGISTER keramon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_keramon = {
+  "keramon",
+  KERAMON_SPRITE_SIZE,
+  KERAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  keramon_walk_frames,      3,   // walk
+  keramon_walkback_frames,  3,   // walkBack
+  keramon_walk_frames,     3,   // sleep
+  keramon_happy_frames,     3,   // eat
+  keramon_happy_frames,     3,   // play
+  keramon_walk_frames,      3,   // sad
+  keramon_walk_frames,     3,   // dead
+  keramon_happy_frames,     3,   // happy
+  keramon_attack_frames,    3,   // attack
+  keramon_profile,               // profile
+  KERAMON_ATTACK_W, KERAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER keramon END
+
+// >>> AUTO-REGISTER kotemon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_kotemon = {
+  "kotemon",
+  KOTEMON_SPRITE_SIZE,
+  KOTEMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  kotemon_walk_frames,      3,   // walk
+  kotemon_walkback_frames,  3,   // walkBack
+  kotemon_walk_frames,     3,   // sleep
+  kotemon_happy_frames,     3,   // eat
+  kotemon_happy_frames,     3,   // play
+  kotemon_walk_frames,      3,   // sad
+  kotemon_walk_frames,     3,   // dead
+  kotemon_happy_frames,     3,   // happy
+  kotemon_attack_frames,    3,   // attack
+  kotemon_profile,               // profile
+  KOTEMON_ATTACK_W, KOTEMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER kotemon END
+
+// >>> AUTO-REGISTER kudamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_kudamon = {
+  "kudamon",
+  KUDAMON_SPRITE_SIZE,
+  KUDAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  kudamon_walk_frames,      3,   // walk
+  kudamon_walkback_frames,  3,   // walkBack
+  kudamon_walk_frames,     3,   // sleep
+  kudamon_happy_frames,     3,   // eat
+  kudamon_happy_frames,     3,   // play
+  kudamon_walk_frames,      3,   // sad
+  kudamon_walk_frames,     3,   // dead
+  kudamon_happy_frames,     3,   // happy
+  kudamon_attack_frames,    3,   // attack
+  kudamon_profile,               // profile
+  KUDAMON_ATTACK_W, KUDAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER kudamon END
+
+// >>> AUTO-REGISTER kumamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_kumamon = {
+  "kumamon",
+  KUMAMON_SPRITE_SIZE,
+  KUMAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  kumamon_walk_frames,      3,   // walk
+  kumamon_walkback_frames,  3,   // walkBack
+  kumamon_walk_frames,     3,   // sleep
+  kumamon_happy_frames,     3,   // eat
+  kumamon_happy_frames,     3,   // play
+  kumamon_walk_frames,      3,   // sad
+  kumamon_walk_frames,     3,   // dead
+  kumamon_happy_frames,     3,   // happy
+  kumamon_attack_frames,    3,   // attack
+  kumamon_profile,               // profile
+  KUMAMON_ATTACK_W, KUMAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER kumamon END
+
+// >>> AUTO-REGISTER lalamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_lalamon = {
+  "lalamon",
+  LALAMON_SPRITE_SIZE,
+  LALAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  lalamon_walk_frames,      3,   // walk
+  lalamon_walkback_frames,  3,   // walkBack
+  lalamon_walk_frames,     3,   // sleep
+  lalamon_happy_frames,     3,   // eat
+  lalamon_happy_frames,     3,   // play
+  lalamon_walk_frames,      3,   // sad
+  lalamon_walk_frames,     3,   // dead
+  lalamon_happy_frames,     3,   // happy
+  lalamon_attack_frames,    3,   // attack
+  lalamon_profile,               // profile
+  LALAMON_ATTACK_W, LALAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER lalamon END
+
+// >>> AUTO-REGISTER lopmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_lopmon = {
+  "lopmon",
+  LOPMON_SPRITE_SIZE,
+  LOPMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  lopmon_walk_frames,      3,   // walk
+  lopmon_walkback_frames,  3,   // walkBack
+  lopmon_walk_frames,     3,   // sleep
+  lopmon_happy_frames,     3,   // eat
+  lopmon_happy_frames,     3,   // play
+  lopmon_walk_frames,      3,   // sad
+  lopmon_walk_frames,     3,   // dead
+  lopmon_happy_frames,     3,   // happy
+  lopmon_attack_frames,    3,   // attack
+  lopmon_profile,               // profile
+  LOPMON_ATTACK_W, LOPMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER lopmon END
+
+// >>> AUTO-REGISTER muchomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_muchomon = {
+  "muchomon",
+  MUCHOMON_SPRITE_SIZE,
+  MUCHOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  muchomon_walk_frames,      3,   // walk
+  muchomon_walkback_frames,  3,   // walkBack
+  muchomon_walk_frames,     3,   // sleep
+  muchomon_happy_frames,     3,   // eat
+  muchomon_happy_frames,     3,   // play
+  muchomon_walk_frames,      3,   // sad
+  muchomon_walk_frames,     3,   // dead
+  muchomon_happy_frames,     3,   // happy
+  muchomon_attack_frames,    3,   // attack
+  muchomon_profile,               // profile
+  MUCHOMON_ATTACK_W, MUCHOMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER muchomon END
+
+// >>> AUTO-REGISTER otamamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_otamamon = {
+  "otamamon",
+  OTAMAMON_SPRITE_SIZE,
+  OTAMAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  otamamon_walk_frames,      3,   // walk
+  otamamon_walkback_frames,  3,   // walkBack
+  otamamon_walk_frames,     3,   // sleep
+  otamamon_happy_frames,     3,   // eat
+  otamamon_happy_frames,     3,   // play
+  otamamon_walk_frames,      3,   // sad
+  otamamon_walk_frames,     3,   // dead
+  otamamon_happy_frames,     3,   // happy
+  otamamon_attack_frames,    4,   // attack
+  otamamon_profile,               // profile
+  OTAMAMON_ATTACK_W, OTAMAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER otamamon END
+
+// >>> AUTO-REGISTER palmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_palmon = {
+  "palmon",
+  PALMON_SPRITE_SIZE,
+  PALMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  palmon_walk_frames,      3,   // walk
+  palmon_walkback_frames,  3,   // walkBack
+  palmon_walk_frames,     3,   // sleep
+  palmon_happy_frames,     3,   // eat
+  palmon_happy_frames,     3,   // play
+  palmon_walk_frames,      3,   // sad
+  palmon_walk_frames,     3,   // dead
+  palmon_happy_frames,     3,   // happy
+  palmon_attack_frames,    3,   // attack
+  palmon_profile,               // profile
+  PALMON_ATTACK_W, PALMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER palmon END
+
+// >>> AUTO-REGISTER patamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_patamon = {
+  "patamon",
+  PATAMON_SPRITE_SIZE,
+  PATAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  patamon_walk_frames,      3,   // walk
+  patamon_walkback_frames,  3,   // walkBack
+  patamon_walk_frames,     3,   // sleep
+  patamon_happy_frames,     3,   // eat
+  patamon_happy_frames,     3,   // play
+  patamon_walk_frames,      3,   // sad
+  patamon_walk_frames,     3,   // dead
+  patamon_happy_frames,     3,   // happy
+  patamon_attack_frames,    4,   // attack
+  patamon_profile,               // profile
+  PATAMON_ATTACK_W, PATAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER patamon END
+
+// >>> AUTO-REGISTER pawnchessmon_white BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_pawnchessmon_white = {
+  "pawnchessmon_white",
+  PAWNCHESSMON_WHITE_SPRITE_SIZE,
+  PAWNCHESSMON_WHITE_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  pawnchessmon_white_walk_frames,      3,   // walk
+  pawnchessmon_white_walkback_frames,  3,   // walkBack
+  pawnchessmon_white_walk_frames,     3,   // sleep
+  pawnchessmon_white_happy_frames,     3,   // eat
+  pawnchessmon_white_happy_frames,     3,   // play
+  pawnchessmon_white_walk_frames,      3,   // sad
+  pawnchessmon_white_walk_frames,     3,   // dead
+  pawnchessmon_white_happy_frames,     3,   // happy
+  pawnchessmon_white_attack_frames,    3,   // attack
+  pawnchessmon_white_profile,               // profile
+  PAWNCHESSMON_WHITE_ATTACK_W, PAWNCHESSMON_WHITE_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER pawnchessmon_white END
+
+// >>> AUTO-REGISTER pawnchessmonblack BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_pawnchessmonblack = {
+  "pawnchessmonblack",
+  PAWNCHESSMONBLACK_SPRITE_SIZE,
+  PAWNCHESSMONBLACK_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  pawnchessmonblack_walk_frames,      3,   // walk
+  pawnchessmonblack_walkback_frames,  3,   // walkBack
+  pawnchessmonblack_walk_frames,     3,   // sleep
+  pawnchessmonblack_happy_frames,     3,   // eat
+  pawnchessmonblack_happy_frames,     3,   // play
+  pawnchessmonblack_walk_frames,      3,   // sad
+  pawnchessmonblack_walk_frames,     3,   // dead
+  pawnchessmonblack_happy_frames,     3,   // happy
+  pawnchessmonblack_attack_frames,    3,   // attack
+  pawnchessmonblack_profile,               // profile
+  PAWNCHESSMONBLACK_ATTACK_W, PAWNCHESSMONBLACK_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER pawnchessmonblack END
+
+// >>> AUTO-REGISTER penguinmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_penguinmon = {
+  "penguinmon",
+  PENGUINMON_SPRITE_SIZE,
+  PENGUINMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  penguinmon_walk_frames,      3,   // walk
+  penguinmon_walkback_frames,  3,   // walkBack
+  penguinmon_walk_frames,     3,   // sleep
+  penguinmon_happy_frames,     3,   // eat
+  penguinmon_happy_frames,     3,   // play
+  penguinmon_walk_frames,      3,   // sad
+  penguinmon_walk_frames,     3,   // dead
+  penguinmon_happy_frames,     3,   // happy
+  penguinmon_attack_frames,    3,   // attack
+  penguinmon_profile,               // profile
+  PENGUINMON_ATTACK_W, PENGUINMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER penguinmon END
+
+// >>> AUTO-REGISTER renamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_renamon = {
+  "renamon",
+  RENAMON_SPRITE_SIZE,
+  RENAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  renamon_walk_frames,      3,   // walk
+  renamon_walkback_frames,  3,   // walkBack
+  renamon_walk_frames,     3,   // sleep
+  renamon_happy_frames,     3,   // eat
+  renamon_happy_frames,     3,   // play
+  renamon_walk_frames,      3,   // sad
+  renamon_walk_frames,     3,   // dead
+  renamon_happy_frames,     3,   // happy
+  renamon_attack_frames,    3,   // attack
+  renamon_profile,               // profile
+  RENAMON_ATTACK_W, RENAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER renamon END
+
+// >>> AUTO-REGISTER salamon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_salamon = {
+  "salamon",
+  SALAMON_SPRITE_SIZE,
+  SALAMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  salamon_walk_frames,      3,   // walk
+  salamon_walkback_frames,  3,   // walkBack
+  salamon_walk_frames,     3,   // sleep
+  salamon_happy_frames,     3,   // eat
+  salamon_happy_frames,     3,   // play
+  salamon_walk_frames,      3,   // sad
+  salamon_walk_frames,     3,   // dead
+  salamon_happy_frames,     3,   // happy
+  salamon_attack_frames,    3,   // attack
+  salamon_profile,               // profile
+  SALAMON_ATTACK_W, SALAMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER salamon END
+
+// >>> AUTO-REGISTER shadowtoyagumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_shadowtoyagumon = {
+  "shadowtoyagumon",
+  SHADOWTOYAGUMON_SPRITE_SIZE,
+  SHADOWTOYAGUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  shadowtoyagumon_walk_frames,      3,   // walk
+  shadowtoyagumon_walkback_frames,  3,   // walkBack
+  shadowtoyagumon_walk_frames,     3,   // sleep
+  shadowtoyagumon_happy_frames,     3,   // eat
+  shadowtoyagumon_happy_frames,     3,   // play
+  shadowtoyagumon_walk_frames,      3,   // sad
+  shadowtoyagumon_walk_frames,     3,   // dead
+  shadowtoyagumon_happy_frames,     3,   // happy
+  shadowtoyagumon_attack_frames,    3,   // attack
+  shadowtoyagumon_profile,               // profile
+  SHADOWTOYAGUMON_ATTACK_W, SHADOWTOYAGUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER shadowtoyagumon END
+
+// >>> AUTO-REGISTER snowagumon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_snowagumon = {
+  "snowagumon",
+  SNOWAGUMON_SPRITE_SIZE,
+  SNOWAGUMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  snowagumon_walk_frames,      3,   // walk
+  snowagumon_walkback_frames,  3,   // walkBack
+  snowagumon_walk_frames,     3,   // sleep
+  snowagumon_happy_frames,     3,   // eat
+  snowagumon_happy_frames,     3,   // play
+  snowagumon_walk_frames,      3,   // sad
+  snowagumon_walk_frames,     3,   // dead
+  snowagumon_happy_frames,     3,   // happy
+  snowagumon_attack_frames,    3,   // attack
+  snowagumon_profile,               // profile
+  SNOWAGUMON_ATTACK_W, SNOWAGUMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER snowagumon END
+
+// >>> AUTO-REGISTER tapirmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_tapirmon = {
+  "tapirmon",
+  TAPIRMON_SPRITE_SIZE,
+  TAPIRMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  tapirmon_walk_frames,      3,   // walk
+  tapirmon_walkback_frames,  3,   // walkBack
+  tapirmon_walk_frames,     3,   // sleep
+  tapirmon_happy_frames,     3,   // eat
+  tapirmon_happy_frames,     3,   // play
+  tapirmon_walk_frames,      3,   // sad
+  tapirmon_walk_frames,     3,   // dead
+  tapirmon_happy_frames,     3,   // happy
+  tapirmon_attack_frames,    3,   // attack
+  tapirmon_profile,               // profile
+  TAPIRMON_ATTACK_W, TAPIRMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER tapirmon END
+
+// >>> AUTO-REGISTER tentomon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_tentomon = {
+  "tentomon",
+  TENTOMON_SPRITE_SIZE,
+  TENTOMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  tentomon_walk_frames,      3,   // walk
+  tentomon_walkback_frames,  3,   // walkBack
+  tentomon_walk_frames,     3,   // sleep
+  tentomon_happy_frames,     3,   // eat
+  tentomon_happy_frames,     3,   // play
+  tentomon_walk_frames,      3,   // sad
+  tentomon_walk_frames,     3,   // dead
+  tentomon_happy_frames,     3,   // happy
+  tentomon_attack_frames,    3,   // attack
+  tentomon_profile,               // profile
+  TENTOMON_ATTACK_W, TENTOMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER tentomon END
+
+// >>> AUTO-REGISTER veemon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_veemon = {
+  "veemon",
+  VEEMON_SPRITE_SIZE,
+  VEEMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  veemon_walk_frames,      3,   // walk
+  veemon_walkback_frames,  3,   // walkBack
+  veemon_walk_frames,     3,   // sleep
+  veemon_happy_frames,     3,   // eat
+  veemon_happy_frames,     3,   // play
+  veemon_walk_frames,      3,   // sad
+  veemon_walk_frames,     3,   // dead
+  veemon_happy_frames,     3,   // happy
+  veemon_attack_frames,    3,   // attack
+  veemon_profile,               // profile
+  VEEMON_ATTACK_W, VEEMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER veemon END
+
+// >>> AUTO-REGISTER wormmon BEGIN (build_digimon_sprites.py)
+const DigimonSprites DIGIMON_wormmon = {
+  "wormmon",
+  WORMMON_SPRITE_SIZE,
+  WORMMON_PROFILE_SIZE,
+  0,                                  // realHeightCm (set by hand if used)
+  TYPE_DATA,                          // combat type
+  0, 0, 0,                            // baseMaxHp, baseAp, baseDp
+  10, 10,                             // baseIntel, baseSpeed
+  nullptr, 0,                         // evolutions, count (wire by hand)
+  wormmon_walk_frames,      3,   // walk
+  wormmon_walkback_frames,  3,   // walkBack
+  wormmon_walk_frames,     3,   // sleep
+  wormmon_happy_frames,     3,   // eat
+  wormmon_happy_frames,     3,   // play
+  wormmon_walk_frames,      3,   // sad
+  wormmon_walk_frames,     3,   // dead
+  wormmon_happy_frames,     3,   // happy
+  wormmon_attack_frames,    3,   // attack
+  wormmon_profile,               // profile
+  WORMMON_ATTACK_W, WORMMON_ATTACK_H     // attack box (w, h)
+};
+// <<< AUTO-REGISTER wormmon END
+
 // --------------------------------------------------------------------------
 const DigimonSprites* const DIGIMON_ALL[] = {
+  &DIGIMON_wormmon,
+  &DIGIMON_veemon,
+  &DIGIMON_tentomon,
+  &DIGIMON_tapirmon,
+  &DIGIMON_snowagumon,
+  &DIGIMON_shadowtoyagumon,
+  &DIGIMON_salamon,
+  &DIGIMON_renamon,
+  &DIGIMON_penguinmon,
+  &DIGIMON_pawnchessmonblack,
+  &DIGIMON_pawnchessmon_white,
+  &DIGIMON_patamon,
+  &DIGIMON_palmon,
+  &DIGIMON_otamamon,
+  &DIGIMON_muchomon,
+  &DIGIMON_lopmon,
+  &DIGIMON_lalamon,
+  &DIGIMON_kumamon,
+  &DIGIMON_kudamon,
+  &DIGIMON_kotemon,
+  &DIGIMON_keramon,
+  &DIGIMON_impmon,
+  &DIGIMON_hawkmon,
+  &DIGIMON_guilmon,
+  &DIGIMON_gotsumon,
+  &DIGIMON_goburimon,
+  &DIGIMON_gaomon,
+  &DIGIMON_gabumon,
+  &DIGIMON_floramon,
+  &DIGIMON_dorumon,
+  &DIGIMON_demidevimon,
+  &DIGIMON_biyomon,
+  &DIGIMON_betamon,
+  &DIGIMON_aruraumon,
+  &DIGIMON_armadillomon,
+  &DIGIMON_agumon,
   &DIGIMON_tokomon,
   &DIGIMON_tanemon,
   &DIGIMON_pandamon,
