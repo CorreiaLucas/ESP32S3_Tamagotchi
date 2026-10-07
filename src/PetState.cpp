@@ -311,3 +311,34 @@ void PetState::setName(const char* n) {
   if (name[0] >= 'a' && name[0] <= 'z') name[0] = (char)(name[0] - 'a' + 'A');
   saveState();
 }
+
+
+void PetState::setSpecies(const char* s) {
+  if (!s) s = "";
+  strncpy(species, s, sizeof(species) - 1);
+  species[sizeof(species) - 1] = '\0';
+  saveState();
+}
+
+
+void PetState::startEgg() {
+  isEggPhase = true;
+  eggMinutes = 0;
+  lastMinuteTime = millis();   // start the incubation minute clock now
+  saveState();
+}
+
+int PetState::gainXp(int amount) {
+  if (amount <= 0) return 0;
+  int levelsGained = 0;
+  xp += amount;
+  // Level is shared across digivolutions and never resets. Stats are left
+  // untouched here on purpose -- ap/dp/maxHp come only from the training menu.
+  while (xp >= xpForNext(level)) {
+    xp -= xpForNext(level);
+    level++;
+    levelsGained++;
+  }
+  saveState();
+  return levelsGained;
+}

@@ -29,9 +29,6 @@ struct EvolutionReq {
   int minAgeDays;                 // require pet age     >= this (0 = ignore)
   int minHappiness;               // require happiness   >= this (0 = ignore)
   int minHunger;                  // require hunger      >= this (0 = ignore)
-  int minLevel;                   // require pet level   >= this (0 = ignore)
-  int minIntelligence;            // require pet INT     >= this (0 = ignore)
-  int minSpeed;                   // require pet SPD     >= this (0 = ignore)
 };
 
 // Digimon attribute type. Classic triangle (official): Vaccine beats Virus,
@@ -105,6 +102,7 @@ float typeMultiplier(DigimonType attacker, DigimonType defender);
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
                               int ageDays, int happiness, int hunger,
-                              int level, int intelligence, int speed);
+                              int level, int intelligence, int speed,
+                              int level);
 
 #endif
