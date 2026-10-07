@@ -79,7 +79,6 @@ struct DialogScript {
 };
 
 // Registered scripts (extern-declared here, defined in DialogManager.cpp).
-extern const DialogScript DIALOG_intro_jijimon;
 extern const DialogScript DIALOG_trainer_pandamon;
 
 // The runtime interpreter. Holds the active script + current node and advances

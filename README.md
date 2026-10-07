@@ -62,6 +62,115 @@ Run it from the project root. Two different modes:
  - Write straight into Sprites.cpp with --out + --append:
  python tools\png_to_rgb565.py sprite Assets\...\eat1.png --name eat_0 --size 48 --out src\Sprites.cpp --append
 
+# Sprite-sheet splitter (`tools/split_sprite_sheet.py`)
+
+Auto-splits a ripped sprite sheet into individual transparent PNGs (keys out the
+background, finds connected blobs, tight-crops each). Add `--auto-name` to also
+NAME each sprite by its action instead of a bare index:
+
+```
+python tools/split_sprite_sheet.py Assets/Digimons/poyomon/Poyomon.png \
+    --out Assets/Digimons/poyomon --prefix poyomon --auto-name
+```
+
+Thanks to the project convention, you can usually pass just `--prefix` and omit
+the sheet path and `--out`: the sheet is derived as
+`Assets/Digimons/<prefix>/<Prefix>.png` (the folder is `<prefix>`; the PNG inside
+is matched case-insensitively, so `Kapurimon.png` is found for prefix
+`kapurimon`), and `--out` defaults to that same folder:
+
+```
+# Equivalent to the explicit paths above:
+python tools/split_sprite_sheet.py --prefix poyomon --auto-name
+```
+
+### Batch mode — a whole folder of Digimon at once
+
+Point `--batch` at a parent folder and the script runs on **every subfolder**,
+using each subfolder's name (lowercased) as the `--prefix`, its `<Name>.png` as
+the sheet, and the subfolder itself as the output dir. All other flags apply to
+every subfolder. A subfolder with no usable sheet is skipped (the batch keeps
+going), and a summary is printed at the end.
+
+```
+# To_split/ contains Aruraumon/ and Betamon/ (each with <Name>.png):
+python tools/split_sprite_sheet.py --batch Assets/Digimons/To_split --auto-name
+#   -> Aruraumon/Aruraumon.png -> prefix "aruraumon", split into Aruraumon/
+#   -> Betamon/Betamon.png     -> prefix "betamon",   split into Betamon/
+```
+
+`--auto-name` is now ROW-AWARE and COUNT-DRIVEN (deterministic — no size
+guessing, which was unreliable across these varied rips):
+
+`--auto-name` is TWO-TIER and ROW-AWARE (deterministic), validated to reproduce
+the finished sets in `InTraining/*` and `ToGenerate/*`. These Digimon World
+sheets are laid out as:
+
+```
+row of BIG battle poses   (top)       -> attack1..N   (ALL of them)
+row(s) of SMALL map frames (below)    -> walk/walkback/happy + profile
+credit text + ripper avatar (bottom)  -> dropped (_To_Remove_)
+```
+
+- Rows below the top sprite band (credit text, avatar) are dropped by
+  **position**, robust to text fragmenting into dozens of tiny word blobs.
+- The band is split into a **large tier** (the big poses → `attack1..N`, all of
+  them by default; cap with `--attack N`) and a **small tier** (the map sprites).
+- In the small tier: `profile` = most-square frame; the rest are consumed
+  **strictly left-to-right** per `--order` (default `walkback,walk,happy`) —
+  `walkback1..3`, then `walk1..3`, then `happy1..3`. No mirror detection; the
+  map-sprite row is already in order, so position decides the name. Extra small
+  frames (unused map directions) → `_To_Remove_`.
+- If the automatic band/tier split misjudges, override with `--sprite-rows N` or
+  `--text-below Y`; the printed table shows each blob's `y` and `w x h`.
+- `--clean` wipes prior `<prefix>_*.png` + `_preview.png` before writing (handy
+  for re-runs); it never touches the source sheet.
+
+```
+# Agumon: big top row -> attack1..N, small row -> walkback/walk/happy + profile:
+python tools/split_sprite_sheet.py Assets/Digimons/Agumon/Agumon.png \
+    --out Assets/Digimons/Agumon --prefix agumon --auto-name --clean
+```
+
+Count flags (used with `--auto-name`):
+
+| Flag | Default | Meaning |
+|------|---------|---------|
+| `--walk N` | 3 | WALK frames (small tier, reading order). |
+| `--walkback N` | 3 | WALKBACK frames (small tier, reading order). |
+| `--happy N` | 3 | HAPPY frames (small tier, reading order). |
+| `--attack N` | 0 | Cap on ATTACK frames (big top row). 0 = all of them. |
+| `--profile 0/1` | 1 | Name one profile sprite (most-square small frame), or skip. |
+| `--order` | `walkback,walk,happy` | Left-to-right order the small tier is consumed. |
+| `--sprite-rows N` | auto | Keep exactly the top N visual rows as sprites; drop the rest. |
+| `--text-below Y` | auto | Drop every blob whose top is at/below pixel row Y. |
+| `--clean` | off | Delete prior `<prefix>_*.png` + `_preview.png` before writing. |
+| `--keep-text` | off | Keep the below-band region instead of dropping it to `_To_Remove_`. |
+
+Because these ripped sheets vary, treat the result as a first pass: skim the
+printed per-sprite table and `_preview.png`, delete the `_To_Remove_` files you
+agree with, and rename any frame the order mis-slotted.
+
+### Multiple background colors
+
+`detect_background_colors` keys out EVERY color whose largest single blob covers
+≥3% of the sheet (tune with `--min-fill-fraction`), so sheets that group sprites
+on colored PANELS over an outer margin (e.g. Koromon's pink boxes on purple) are
+handled — both the panel and the margin are removed. A sheet with a single
+background still works, since the outer fill always qualifies.
+
+```
+# Example with a manual exclude region (e.g. a stubborn watermark):
+python tools/split_sprite_sheet.py Assets/Digimons/koromon/Koromon.png \
+    --out Assets/Digimons/koromon --prefix koromon --auto-name \
+    --walk 3 --walkback 3 --happy 2 --attack 5 --exclude-box 230,95,400,170
+```
+
+The script prints a per-sprite table (idx, size, assigned name, reason). Because
+these ripped sheets vary a lot, treat the result as a first pass: skim the
+summary / `_preview.png` and hand-correct any mis-slotted frame before running
+the Digimon sprite generator below.
+
 # Digimon sprite generator (whole folder → <name>Sprites.cpp/.h)
 
 `tools\build_digimon_sprites.py` automates converting an ENTIRE Digimon folder
@@ -77,29 +186,60 @@ prefixes every symbol with the Digimon name (so multiple Digimon coexist for
 - Groups same-base frames into a 0-based animation table, e.g.:
   `const uint16_t* const terriermon_walk_frames[3] = { terriermon_walk_0, terriermon_walk_1, terriermon_walk_2 };`
 - Single unnumbered images (sleep, profile) become a lone symbol.
-- Emits `#define <NAME>_SPRITE_SIZE` / `_PROFILE_SIZE` so the firmware knows the
-  stored size.
+- Emits `#define <NAME>_SPRITE_SIZE` / `_PROFILE_SIZE` / `_ATTACK_W` / `_ATTACK_H`
+  so the firmware knows the stored size of each group.
 - Skips non-sprite files (source sheets like `gargomon.png`) and lists them.
 
-## Current sizing convention (native 1:1 — no upscaling)
-Sprites are stored at each Digimon's NATIVE art size and drawn 1:1 (no runtime
-scaling), which keeps pixels crisp/even. Apparent size differences between
-Digimon are intended to be conveyed later via **background zoom** (using
-`realHeightCm` in `DigimonRegistry`), NOT by scaling the sprites.
+## Sizing convention (per-action, native 1:1 where possible)
 
-Current sizes: terriermon 41px, gargomon 50px (profile 30px), pad 0.12.
+Sprites are stored at native art size and drawn 1:1 (no runtime scaling), which
+keeps pixels crisp. Sizes are **per action group**, not one value per Digimon:
+
+| group | box | why |
+|---|---|---|
+| normal poses (walk, walkback, happy, sleep, ...) | one shared square = largest pose + `--pad` | the wandering pet must not change size between actions, or it appears to grow/shrink |
+| **attack** | its own `w x h` at the art's aspect ratio, longest side capped by `--attack-max` (48) | attack art is ~3x the poses (e.g. Agumon 62x73 vs 22x26); sharing the pose square crushed it to ~37% |
+| profile | the profile image's own size, no padding | it's a portrait, not a pose |
+
+Attack frames are combat-only (`drawCombatScene` draws them, the main screen
+never does), so a different size there cannot disturb the wandering pet. The
+generator emits `#define <NAME>_ATTACK_W` / `_ATTACK_H` and fills `attackW` /
+`attackH` in the registry entry; both are `0` for older sprite sets, which makes
+the firmware fall back to a `spriteSize` square.
+
+Downscaling now uses **BOX** (area-average) instead of NEAREST. At a fractional
+factor NEAREST drops whole rows and columns, so eyes and limbs vanished.
+
+Apparent size differences between Digimon are still meant to be conveyed by
+**background zoom** (`realHeightCm`), not by scaling sprites.
 
 ## Usage
 ```
-# Native 1:1 (current convention). --size = the box that fits the largest
-# normal-pose frame + ~25% padding headroom.
-python tools\build_digimon_sprites.py terriermon --size 41 --profile-size 30 --scale 1
-python tools\build_digimon_sprites.py gargomon   --size 50 --profile-size 30 --scale 1
+# Sizes are picked automatically (native 1:1 is now the default):
+#   action size  = largest NORMAL pose (walk/walkback/happy/sleep...; attack
+#                  excluded) + the --pad margin
+#   attack box   = attack art's aspect, longest side <= --attack-max
+#   profile size = the profile image's own size, no padding
+python tools\build_digimon_sprites.py Assets\Digimons\ToGenerate\Agumon
+
+# A folder of folders builds every Digimon folder below it, at any depth:
+python tools\build_digimon_sprites.py Assets\Digimons\ToGenerate
+
+# A bare name is still looked up under --assets (Assets\Digimons):
+python tools\build_digimon_sprites.py terriermon --size 41 --profile-size 30
 ```
+
+Re-running on a Digimon that is already registered keeps its hand-edited
+`realHeightCm`, type, base stats and evolutions (pass `--stats` to overwrite the
+stats). Digimon defined by hand in `DigimonRegistry.cpp` (terriermon, gargomon)
+are never touched by the registration step.
 
 Flags:
 - `--size N`       : force the square canvas size (omit to auto-derive from art).
-- `--profile-size N`: profile sprite square size (default 30).
+- `--profile-size N`: force the profile square size (omit = profile's own size).
+- `--attack-max N` : longest side allowed for the attack box (default 48). Attack
+                     art keeps its aspect ratio and is only ever scaled DOWN to
+                     this. `0` = reuse the pose square (old behaviour).
 - `--pad F`        : transparent safety margin per side (default 0.12 ≈ 12%),
                      prevents ears/feet from clipping the canvas edge.
 - `--scale N`      : integer scale cap. `1` = TRUE native 1:1 — frames are
@@ -212,7 +352,6 @@ script it wants, then transitions. Current entry points:
 
 | Reached from            | Script             | NPC      |
 |-------------------------|--------------------|----------|
-| top menu → **Talk**     | `intro_jijimon`    | Jijimon  |
 | Digimon menu → **Training** | `trainer_pandamon` | Pandamon |
 
 ### Options can have side effects
@@ -258,14 +397,50 @@ The viewer's **Dialogs** tab shows the conversation graph. With more than one
 script a picker appears in the toolbar. Nodes are marked ▶ start and ⛔ refused,
 and edges show ⚡ACTION when a choice has a side effect.
 
+## Adventure mode
+
+Action → **Battle** opens the adventure. It is a linear campaign: a list of
+**areas**, each a fixed sequence of fights ending in a **boss**. Beating an
+area's boss unlocks the next area.
+
+Files:
+- `src/AdventureRegistry.{h,cpp}` — the areas (data only). Each
+  `AdventureArea` is `{ name, enemies[], enemyCount, boss, background }`;
+  enemies come from `EnemyRegistry`. Order in `ADVENTURE_ALL[]` = unlock order.
+- `src/AdventureManager.{h,cpp}` — saves progress (number of areas cleared,
+  Preferences namespace `"adv_data"`) and tracks the current run (area + fight
+  index, RAM only).
+- `GameStateMachine.cpp` — three states:
+  `STATE_ADVENTURE_SELECT` (area list), `STATE_ADVENTURE_INTERLUDE` (screen
+  before each fight + cleared/defeat result), `STATE_ADVENTURE_BATTLE` (one fight
+  through the existing `Combat` engine).
+
+Rules:
+- Locked areas show as `???` and can't be entered; cleared areas show `*`.
+- A run starts at full HP. **HP carries over** between fights, plus a heal of
+  `ADV_HEAL_PERCENT` (30%) of max HP after each win.
+- Between fights you can **Continue** or **Retreat**. Retreat keeps the XP already
+  earned (XP is granted at the end of each fight) but doesn't clear the area.
+- Losing a fight ends the run. Replaying a cleared area unlocks nothing new.
+- Settings → Reset and starting a new egg after death both reset adventure
+  progress to the first area.
+
+Adding an area: write its enemy list and an `AdventureArea` in
+`AdventureRegistry.cpp`, then add it to `ADVENTURE_ALL[]`. Leave `background`
+as `nullptr` until the art exists (battles then use the forest background).
+
 ## TODO
 [ ]  Training
   [ ] Minigame or just waiting  
   [ ]
   [ ]
 [ ]  Combats
-  [ ] Combat sprites
+  [X] Combat sprites (attack art sweeps across the screen; always on Special,
+      ~45% on a normal attack)
   [ ] Enemies
+[X]  Adventure mode (linear areas + boss, unlocks, HP carry-over, retreat)
+  [ ] Per-area combat backgrounds
+  [ ] Real enemies / areas (currently placeholders)
 [ ]  Eggs / more digimons
 [X]  Real digivolution system 
   [X]  Attaching base stat for each digimon

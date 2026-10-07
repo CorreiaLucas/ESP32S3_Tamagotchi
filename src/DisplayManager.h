@@ -247,6 +247,11 @@ public:
   void addPoopBehind(int petX, int petY, int petW, int petH, bool facingRight);
   void drawProfileSprite(int x, int y, int width, int height, const uint16_t* frame, uint16_t transparentColor);
   void drawMenu(const char* title, const char* const* items, int itemCount, int selectedIndex);  
+  // Like drawMenu, plus an optional right-aligned suffix per row (suffixes may
+  // be nullptr, or contain nullptr entries) and scrolling when there are more
+  // rows than fit on screen.
+  void drawListMenu(const char* title, const char* const* items,
+                    const char* const* suffixes, int itemCount, int selectedIndex);
   void drawSettings(int selectedIndex, bool isMuted);
   void drawStatsPage(const char* name, int hp, int maxHp, int ap, int dp, int intel, int speed,
                      int level, int xp, int xpForNext,

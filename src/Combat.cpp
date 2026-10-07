@@ -6,7 +6,7 @@ Combat::Combat()
     playerHp(0), playerMaxHp(0), playerAp(0), playerDp(0),
     enemyHp(0), enemyMaxHp(0),
     charge(0), playerGuarding(false), enemyGuarding(false), enemyIntent(EI_ATTACK),
-    parryDir(PARRY_OVER), parryResolved(false), parrySuccess(false),
+    parryDir(PARRY_OVER), parryResolved(false), parrySuccess(false), showAttackArt(false),
     displayPlayerHp(0), displayEnemyHp(0), flashTarget(0), flashUntil(0),
     popTarget(0), popStart(0), popUntil(0), shakeUntil(0),
     timingPos(0), timingDir(1), pendingAction(CA_ATTACK),
@@ -15,14 +15,14 @@ Combat::Combat()
   popText[0] = '\0';
 }
 
-void Combat::begin(const Enemy* e, PetState& pet, CharacterManager& cat) {
+void Combat::begin(const Enemy* e, PetState& pet, CharacterManager& cat, int startHp) {
   enemy = e;
   playerArt = cat.getDigimon();
 
   // The player's battle HP pool is the pet's maxHp (training raises it). The
   // persistent pet HP in the care sim is intentionally left untouched.
   playerMaxHp = pet.getMaxHp();
-  playerHp    = playerMaxHp;
+  playerHp    = (startHp > 0 && startHp <= playerMaxHp) ? startHp : playerMaxHp;
   playerAp    = pet.getAp();
   playerDp    = pet.getDp();
   playerSpeed = pet.getSpeed();
@@ -48,6 +48,7 @@ void Combat::begin(const Enemy* e, PetState& pet, CharacterManager& cat) {
   parryDir = PARRY_OVER;
   parryResolved = false;
   parrySuccess = false;
+  showAttackArt = false;
   timingPos = 0;
   timingDir = 1;
   pendingAction = CA_ATTACK;
@@ -142,6 +143,7 @@ bool Combat::update(PetState& pet, DisplayManager& display,
           playerGuarding = true;
           if (charge < CHARGE_MAX) charge++;
           pendingAction = CA_GUARD;
+          showAttackArt = false;          // guarding is not a strike
           setMessage("Guarding!");
           toPhase(CP_PLAYER_RESOLVE);
           display.drawCombatScene(*this);
@@ -205,6 +207,10 @@ bool Combat::update(PetState& pet, DisplayManager& display,
         else                       snprintf(message, sizeof(message), "Weak.. -%d", dmg);
 
         sound.playClick();
+        // Attack art: ALWAYS on a Special (the big move should read as one),
+        // and on a random share of normal attacks so strikes stay varied.
+        showAttackArt = (pendingAction == CA_SPECIAL) ||
+                        ((int)random(0, 100) < ATTACK_ART_CHANCE);
         toPhase(CP_PLAYER_RESOLVE);
         display.drawCombatScene(*this);
         break;
@@ -217,6 +223,7 @@ bool Combat::update(PetState& pet, DisplayManager& display,
     case CP_PLAYER_RESOLVE: {
       display.drawCombatScene(*this);
       if (now - phaseStart > 1000) {
+        showAttackArt = false;           // strike over: back to the idle pose
         if (enemyHp <= 0) {
           won = true;
           snprintf(message, sizeof(message), "%s down!", enemy ? enemy->name : "Enemy");

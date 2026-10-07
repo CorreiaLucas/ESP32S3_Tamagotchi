@@ -184,6 +184,12 @@ void DisplayManager::begin() {
   // rotation 0 shows everything upside-down. This flips the whole panel.
   tft.setRotation(2);
   #ifdef SIMULATOR_BUILD
+    // Wokwi's board-st7789 shows red and blue swapped with the library's
+    // default RGB order (slate-blue menus came out orange, sand paths blue).
+    // Re-send MADCTL for rotation 2 with the BGR bit (0x08) set. This only runs
+    // on the simulator; the real SSD1351 is unaffected.
+    uint8_t madctl = ST77XX_MADCTL_RGB | 0x08;   // rotation 2 + BGR
+    tft.sendCommand(ST77XX_MADCTL, &madctl, 1);
     tft.fillScreen(TFT_BEZEL);   // bezel fills the whole 240x240 panel
   #else
     tft.fillScreen(TFT_SAGE_GREEN);
@@ -759,6 +765,61 @@ void DisplayManager::drawMenu(const char* title, const char* const* items, int i
 
   gfx = nullptr;                         // restore default (panel) target
   pushFrame();                           // single blit -> no blink
+}
+
+void DisplayManager::drawListMenu(const char* title, const char* const* items,
+                                  const char* const* suffixes, int itemCount,
+                                  int selectedIndex) {
+  // Same window and row style as drawMenu, composited offscreen in one blit.
+  seedBufferBackground();
+  gfx = &frameBuffer;
+
+  const int pnlX = 8,   pnlY = 6;
+  const int pnlW = 112, pnlH = 116;
+  drawBevelPanel(pnlX, pnlY, pnlW, pnlH);
+
+  frameBuffer.setTextSize(1);
+  frameBuffer.setTextColor(MENU_TEXT_DARK);
+  frameBuffer.setCursor(pnlX + 6, pnlY + 5);
+  frameBuffer.print(title);
+  frameBuffer.drawFastHLine(pnlX + 4, pnlY + 15, pnlW - 8, STAT_FRAME_COLOR);
+
+  // Fixed 18px pitch. Up to 5 rows are visible; with more, the window scrolls
+  // to keep the selection on screen.
+  const int MAX_VISIBLE = 5;
+  const int itemX  = pnlX + 4;
+  const int itemW  = pnlW - 8;
+  const int listY0 = pnlY + 20;
+  const int pitch  = 18;
+  const int itemH  = pitch - 3;
+
+  int visible = itemCount < MAX_VISIBLE ? itemCount : MAX_VISIBLE;
+  int first = 0;
+  if (selectedIndex >= visible) first = selectedIndex - visible + 1;
+  if (first > itemCount - visible) first = itemCount - visible;
+  if (first < 0) first = 0;
+
+  for (int r = 0; r < visible; r++) {
+    int i = first + r;
+    const char* suffix = suffixes ? suffixes[i] : nullptr;
+    drawMenuRow(itemX, listY0 + r * pitch, itemW, itemH,
+                items[i], i == selectedIndex, suffix);
+  }
+
+  // Scroll hints: small arrows on the right edge when rows are hidden.
+  uint16_t hint = UI_TEXT_MUTED;
+  int ax = pnlX + pnlW - 8;
+  if (first > 0) {                       // "more above": in the title bar
+    int ty = pnlY + 10;
+    frameBuffer.fillTriangle(ax, ty, ax + 4, ty, ax + 2, ty - 3, hint);
+  }
+  if (first + visible < itemCount) {
+    int by = listY0 + visible * pitch;
+    frameBuffer.fillTriangle(ax, by - 1, ax + 4, by - 1, ax + 2, by + 2, hint);
+  }
+
+  gfx = nullptr;
+  pushFrame();
 }
 
 void DisplayManager::drawSettings(int selectedIndex, bool isMuted) {
@@ -1337,13 +1398,13 @@ void DisplayManager::drawEggSelect(int selected, int count, const char* label, i
 // Blit a square sprite frame into an offscreen canvas (RAM), black treated as
 // transparent (same convention as the profile sprite). Static file-local
 // helper ported from the original project for drawCombatScene().
-static void blitSpriteToBuffer(GFXcanvas16& fb, int dx, int dy, int size,
+static void blitSpriteToBuffer(GFXcanvas16& fb, int dx, int dy, int w, int h,
                                const uint16_t* frame, bool flip, uint16_t tint = 0) {
-  if (!frame || size <= 0) return;
-  for (int row = 0; row < size; row++) {
-    for (int col = 0; col < size; col++) {
-      int srcCol = flip ? (size - 1 - col) : col;
-      uint16_t c = pgm_read_word(&frame[row * size + srcCol]);
+  if (!frame || w <= 0 || h <= 0) return;
+  for (int row = 0; row < h; row++) {
+    for (int col = 0; col < w; col++) {
+      int srcCol = flip ? (w - 1 - col) : col;
+      uint16_t c = pgm_read_word(&frame[row * w + srcCol]);
       if (c != TFT_BLACK) {
         // tint != 0 -> draw the OPAQUE pixels as the tint colour (hit-flash
         // silhouette that hugs the sprite shape, not a box filter).
@@ -1436,7 +1497,7 @@ void DisplayManager::drawCombatScene(const Combat& combat) {
     // Hit flash: draw the sprite as a solid white silhouette on impact (hugs
     // its shape); otherwise draw it normally.
     uint16_t etint = (combat.getFlashTarget() == 2) ? 0xFFFF : 0;
-    blitSpriteToBuffer(frameBuffer, ex, ey, esize, enemy->art->walk[0], false, etint);
+    blitSpriteToBuffer(frameBuffer, ex, ey, esize, esize, enemy->art->walk[0], false, etint);
   }
 
   // ---- Enemy intent telegraph ---------------------------------------------
@@ -1475,25 +1536,52 @@ void DisplayManager::drawCombatScene(const Combat& combat) {
     frameBuffer.print(label);
   }
 
-  // ---- Player sprite (lower-left) -----------------------------------------
+  // ---- Player sprite (idle: lower-left / attacking: sweeps across) --------
   const DigimonSprites* pArt = combat.getPlayerArt();
   if (pArt) {
-    int psize = pArt->spriteSize;
-    int px = 4;
-    // Keep the player's feet just above the lower command panel (top = 76).
-    int py = 74 - psize;
-    if (py < 22) py = 22;
-    // During the player's hit resolve, show an attack frame if the Digimon
-    // ships one; otherwise fall back to walk[0].
+    // Attack frames live in their OWN (larger) box than the idle pose, so the
+    // size is chosen per frame-set rather than from one uniform spriteSize.
+    bool attacking = (phase == CP_PLAYER_RESOLVE) && combat.getShowAttackArt() &&
+                     pArt->attack && pArt->attackCount > 0;
+
+    // The attack pose is too big to read as a pose standing in the corner, so
+    // it CHARGES across the screen left -> right (the direction the player
+    // faces) and exits right, then the idle pose reappears in its slot for the
+    // rest of the resolve beat. The sweep is centred in the PLAYFIELD -- the
+    // band between the enemy header and the command panel -- because the panel
+    // is drawn after the sprites and would otherwise cover its lower part.
+    const uint32_t SWEEP_MS = 650;         // resolve lasts ~1000ms
+    const int PLAY_TOP = 20;               // enemy sprite's top edge
+    const int PLAY_BOT = 76;               // command panel's top edge
+    uint32_t el = attacking ? combat.getPhaseElapsed() : 0;
+    bool sweeping = attacking && el < SWEEP_MS;
+
     const uint16_t* pframe = nullptr;
-    if (phase == CP_PLAYER_RESOLVE && pArt->attack && pArt->attackCount > 0) {
-      pframe = pArt->attack[0];
-    } else if (pArt->walk && pArt->walkCount > 0) {
-      pframe = pArt->walk[0];
+    int pw, ph, px, py;
+    if (sweeping) {
+      pw = digimonAttackW(pArt);
+      ph = digimonAttackH(pArt);
+      // Step the attack animation off the phase clock (~120ms/frame), holding
+      // the last frame once they run out.
+      int f = (int)(el / 120);
+      if (f >= pArt->attackCount) f = pArt->attackCount - 1;
+      pframe = pArt->attack[f];
+      // Fully off-screen left -> fully off-screen right. Out-of-range pixels
+      // are clipped by GFXcanvas16::drawPixel, so the entry/exit is partial.
+      px = -pw + (int)(((uint32_t)(SCREEN_WIDTH + pw) * el) / SWEEP_MS);
+      py = PLAY_TOP + (PLAY_BOT - PLAY_TOP - ph) / 2;
+      if (py < PLAY_TOP) py = PLAY_TOP;    // taller than the band: top-align
+    } else {
+      pw = ph = pArt->spriteSize;
+      if (pArt->walk && pArt->walkCount > 0) pframe = pArt->walk[0];
+      // Anchor by the FEET, just above the command panel.
+      px = 4;
+      py = 74 - ph;
+      if (py < 22) py = 22;                // never overlap the enemy HP header
     }
     // Player faces RIGHT (toward the enemy): flip the sprite.
     uint16_t ptint = (combat.getFlashTarget() == 1) ? 0xFFFF : 0;
-    blitSpriteToBuffer(frameBuffer, px, py, psize, pframe, true, ptint);
+    blitSpriteToBuffer(frameBuffer, px, py, pw, ph, pframe, true, ptint);
   }
 
   // ---- Lower command panel: message, HP, charge, and the action row -------

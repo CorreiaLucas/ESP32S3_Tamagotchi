@@ -42,7 +42,7 @@ enum CombatPhase {
   CP_ENEMY_RESOLVE,  // show enemy's damage
   CP_WIN,            // victory banner (+XP)
   CP_LOSE,           // defeat banner
-  CP_DONE            // battle finished; caller should leave STATE_COMBAT
+  CP_DONE            // battle finished; caller should leave STATE_ADVENTURE_BATTLE
 };
 
 enum CombatAction { CA_ATTACK = 0, CA_GUARD = 1, CA_SPECIAL = 2 };
@@ -65,11 +65,13 @@ public:
   Combat();
 
   // Start a fresh battle against `enemy`, using the pet's current stats and
-  // the active Digimon's art (from CharacterManager).
-  void begin(const Enemy* enemy, PetState& pet, CharacterManager& cat);
+  // the active Digimon's art (from CharacterManager). `startHp` lets a
+  // multi-fight run carry HP over: values in 1..maxHp start the fight at that
+  // HP; anything else (default -1) starts at full HP.
+  void begin(const Enemy* enemy, PetState& pet, CharacterManager& cat, int startHp = -1);
 
   // Advance the battle one tick. Returns true while the battle is ongoing;
-  // returns false once the phase reaches CP_DONE (caller leaves STATE_COMBAT).
+  // returns false once the phase reaches CP_DONE (caller leaves the battle state).
   // Grants XP on the transition into CP_WIN exactly once.
   bool update(PetState& pet, DisplayManager& display,
               InputManager& input, SoundManager& sound);
@@ -95,6 +97,13 @@ public:
   ParryDir getParryDir() const { return parryDir; }
   bool getParryResolved() const { return parryResolved; }
   bool getParrySuccess() const { return parrySuccess; }
+  // True while the player's strike should be drawn with the Digimon's ATTACK
+  // art instead of its idle pose. Always set for a Special; set at random for
+  // a normal attack (see ATTACK_ART_CHANCE) so strikes stay varied.
+  bool getShowAttackArt() const { return showAttackArt; }
+  // Milliseconds since the current phase began -- lets the renderer step the
+  // attack animation without owning a timer.
+  uint32_t getPhaseElapsed() const { return millis() - phaseStart; }
 
   // ---- Juice (visual feedback) read by DisplayManager::drawCombatScene ----
   int  getDisplayPlayerHp() const { return displayPlayerHp; }  // eased HP (smooth drain)
@@ -107,6 +116,9 @@ public:
 
 private:
   static const int CHARGE_MAX = 3;   // Guard/attack builds charge; Special costs full
+  // Chance (%) that a NORMAL attack plays the attack art. A Special always
+  // does, so the big move stays visually distinct.
+  static const int ATTACK_ART_CHANCE = 45;
   static const int TIMING_MAX = 100; // timing marker range
   // Timing zones (marker position): perfect center, good band around it.
   static const int TIMING_PERFECT_LO = 44;
@@ -134,6 +146,7 @@ private:
   ParryDir parryDir;        // incoming attack direction during CP_ENEMY_PARRY
   bool parryResolved;       // player has reacted (or window expired)
   bool parrySuccess;        // the reaction matched -> blocked
+  bool showAttackArt;       // draw the attack pose for this strike
 
   // ---- Juice state ----
   int  displayPlayerHp, displayEnemyHp;  // eased HP shown on the bars

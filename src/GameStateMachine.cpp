@@ -11,6 +11,7 @@
 #include "DialogManager.h"
 #include "Combat.h"
 #include "EnemyRegistry.h"
+#include "AdventureManager.h"
 
 // ==========================================================================
 //  Managers (single instances shared by every state handler).
@@ -22,6 +23,7 @@ static SoundManager    sound;
 static CharacterManager cat;
 static DialogManager   dlg;
 static Combat          combat;
+static AdventureManager adventure;
 
 // Current active state. Never assign this directly outside changeState().
 static GameState currentState = STATE_MAIN;
@@ -60,7 +62,7 @@ static const unsigned long SCREENSAVER_TIMEOUT = 60000;
 //  Menu definitions. The items live in flash; each menu state binds them into
 //  the shared `menu` controller in its onEnter().
 // ==========================================================================
-static const char* topMenuItems[]      = { "Action", "Digimon", "Talk", "Settings", "Exit" };
+static const char* topMenuItems[]      = { "Action", "Digimon", "Settings", "Exit" };
 static const char* actionMenuItems[]   = { "Feed", "Play", "Sleep", "Clean", "Battle", "Back" };
 static const char* digimonMenuItems[]  = { "Stats", "Training", "Digivolution", "Back" };
 
@@ -80,7 +82,7 @@ static const EggDef kEggs[] = {
   { "Tsunomon",  &DIGIMON_tsunomon  },
 };
 static const int NUM_EGGS = sizeof(kEggs) / sizeof(kEggs[0]);
-static const int NUM_MENU_ITEMS     = 5;
+static const int NUM_MENU_ITEMS     = 4;
 static const int NUM_ACTION_ITEMS   = 6;
 static const int NUM_DIGIMON_ITEMS  = 4;
 static const int NUM_SETTINGS_ITEMS = 3;
@@ -92,7 +94,7 @@ static MenuController menu;
 
 // Which conversation STATE_NPC_DIALOG will run next. Menu handlers set this
 // just before transitioning, so one dialog state serves every NPC.
-static const DialogScript* pendingDialog = &DIALOG_intro_jijimon;
+static const DialogScript* pendingDialog = &DIALOG_trainer_pandamon;
 
 // ---- NPC selection on the main screen ------------------------------------
 // LEFT/RIGHT highlights the Pandamon NPC in the top-right corner; OK then
@@ -339,11 +341,8 @@ static GameState topMenuOnUpdate() {
     switch (menu.selection) {
       case 0: return STATE_ACTION_MENU;
       case 1: return STATE_DIGIMON_MENU;
-      case 2:                            // Talk -> village elder
-        pendingDialog = &DIALOG_intro_jijimon;
-        return STATE_NPC_DIALOG;
-      case 3: return STATE_SETTINGS;
-      case 4: return STATE_MAIN;   // Exit -> main screen
+      case 2: return STATE_SETTINGS;
+      case 3: return STATE_MAIN;   // Exit -> main screen
     }
   }
   return STATE_MENU;
@@ -368,6 +367,7 @@ static GameState settingsOnUpdate() {
       display.drawSettings(menu.selection, sound.getMuted());
     } else if (menu.selection == 1) {     // Reset
       pet.reset();
+      adventure.reset();                  // fresh pet -> only the first area open
       cat.setAction(WALKING);
       return STATE_MAIN;
     } else if (menu.selection == 2) {     // Back -> top menu
@@ -407,8 +407,8 @@ static GameState actionMenuOnUpdate() {
         pet.clean();
         sound.playHappyTone();
         return STATE_MAIN;
-      case 4:                              // Battle -> turn-based combat
-        return STATE_COMBAT;
+      case 4:                              // Battle -> adventure area select
+        return STATE_ADVENTURE_SELECT;
       case 5:                              // Back
         return STATE_MENU;
     }
@@ -628,6 +628,7 @@ static GameState deadOnUpdate() {
     sound.playClick();
     if (menu.selection == 0) {
       pet.reset();
+      adventure.reset();                  // new egg -> adventure starts over
       menu.selection = 0;
       return STATE_EGG_SELECT;
     } else if (menu.selection == 1) {
@@ -829,31 +830,196 @@ static GameState eggSelectOnUpdate() {
 }
 
 // ==========================================================================
-//  STATE_COMBAT  (Tier-2 turn-based boss fight; ported from the old project)
+//  ADVENTURE RUN  (shared state for the three adventure screens)
+//
+//  Flow:  SELECT -> INTERLUDE(start) -> BATTLE -> INTERLUDE(next) -> BATTLE
+//         ... -> boss won  -> INTERLUDE(cleared) -> MAIN
+//             -> any loss  -> INTERLUDE(defeat)  -> MAIN
+//             -> Retreat on an interlude          -> MAIN (XP already earned is kept)
+//
+//  HP carries over between fights: each fight starts at the HP the previous
+//  one ended with, plus a partial heal (ADV_HEAL_PERCENT of max HP).
+// ==========================================================================
+static const int ADV_HEAL_PERCENT = 30;
+
+enum AdvInterludeMode { ADV_START, ADV_NEXT, ADV_CLEARED, ADV_DEFEAT };
+static AdvInterludeMode advMode = ADV_START;
+static int  advSel = 0;                 // selected option on the interlude
+static int  advRunHp = 0;               // HP carried into the next fight
+static int  advHealed = 0;              // HP restored after the last win
+static bool advNewUnlock = false;       // last clear unlocked a new area
+static bool advFightPending = false;    // next BATTLE onEnter starts a fight
+static const char* advAreaName = "";    // kept after the run ends (result screens)
+static const char* advFoeName = "";     // enemy that beat us (defeat screen)
+
+// ==========================================================================
+//  STATE_ADVENTURE_BATTLE  (one fight of the current run)
 //  The Combat engine is self-contained & non-blocking: begin() sets up the
 //  fight, update() drives one tick and renders itself, returning false when
-//  done. We pick an enemy scaled by the pet's level on entry, and on finish
-//  set a happy/sad reaction and return to the main screen.
+//  done.
 // ==========================================================================
-static void combatOnEnter() {
+static void adventureBattleOnEnter() {
   if (pet.isSleeping()) pet.wakeUp();
-  // Scale the foe to the pet's level (temporary selection; later driven by an
-  // adventure map). Enemies come from EnemyRegistry.
-  const Enemy* foe = &ENEMY_pagumon_grunt;
-  if (pet.getLevel() >= 5)      foe = &ENEMY_gargomon_boss;
-  else if (pet.getLevel() >= 2) foe = &ENEMY_kuramon_scout;
-  combat.begin(foe, pet, cat);
+  // Only start a fight when coming from the interlude. If we're re-entered
+  // for a repaint (e.g. waking from the screensaver), keep the fight going.
+  if (advFightPending) {
+    advFightPending = false;
+    combat.begin(adventure.currentEnemy(), pet, cat, advRunHp);
+  }
   display.clearScreen();
 }
 
-static GameState combatOnUpdate() {
+static GameState adventureBattleOnUpdate() {
   // Drive the engine one tick; it renders itself and grants XP on victory.
-  bool ongoing = combat.update(pet, display, input, sound);
-  if (!ongoing) {
-    cat.setAction(combat.didWin() ? HAPPY : SAD);
-    return STATE_MAIN;                  // STATE_MAIN's onEnter repaints the scene
+  if (combat.update(pet, display, input, sound)) return STATE_ADVENTURE_BATTLE;
+
+  advSel = 0;
+  if (!combat.didWin()) {
+    const Enemy* foe = combat.getEnemy();
+    advFoeName = foe ? foe->name : "the enemy";
+    adventure.endRun();
+    cat.setAction(SAD);
+    advMode = ADV_DEFEAT;
+    return STATE_ADVENTURE_INTERLUDE;
   }
-  return STATE_COMBAT;
+
+  advRunHp = combat.getPlayerHp();
+  if (adventure.advance()) {
+    // More fights left: partial heal, then the between-fights screen.
+    int maxHp = pet.getMaxHp();
+    int before = advRunHp;
+    advRunHp += maxHp * ADV_HEAL_PERCENT / 100;
+    if (advRunHp > maxHp) advRunHp = maxHp;
+    advHealed = advRunHp - before;
+    advMode = ADV_NEXT;
+    return STATE_ADVENTURE_INTERLUDE;
+  }
+
+  // Boss beaten: area cleared.
+  advNewUnlock = adventure.markAreaCleared();
+  cat.setAction(HAPPY);
+  sound.playHappyTone();
+  advMode = ADV_CLEARED;
+  return STATE_ADVENTURE_INTERLUDE;
+}
+
+// ==========================================================================
+//  STATE_ADVENTURE_SELECT  (pick an area; locked areas can't be entered)
+//  Rows = every registered area + "Back". Locked areas show as "???" so their
+//  name stays a surprise; cleared areas get a "*" suffix.
+// ==========================================================================
+static const int MAX_ADV_ROWS = 16;              // areas + Back shown at most
+static const char* advLabels[MAX_ADV_ROWS];
+static const char* advSuffixes[MAX_ADV_ROWS];
+static int advRowCount = 0;
+
+static void buildAdventureRows() {
+  int areas = ADVENTURE_COUNT;
+  if (areas > MAX_ADV_ROWS - 1) areas = MAX_ADV_ROWS - 1;   // keep a slot for Back
+  for (int i = 0; i < areas; i++) {
+    bool open = adventure.isUnlocked(i);
+    advLabels[i]   = open ? ADVENTURE_ALL[i]->name : "???";
+    advSuffixes[i] = adventure.isCleared(i) ? "*" : nullptr;
+  }
+  advLabels[areas]   = "Back";
+  advSuffixes[areas] = nullptr;
+  advRowCount = areas + 1;
+}
+
+static void drawAdventureSelect() {
+  display.drawListMenu("Adventure", advLabels, advSuffixes, advRowCount, menu.selection);
+}
+
+static void adventureSelectOnEnter() {
+  buildAdventureRows();
+  menu.reset("Adventure", advLabels, advRowCount);
+  drawAdventureSelect();
+}
+
+static GameState adventureSelectOnUpdate() {
+  if (menu.moveOnNavigation()) drawAdventureSelect();
+
+  if (input.isOkPressed()) {
+    int back = advRowCount - 1;
+    if (menu.selection == back) {
+      sound.playClick();
+      return STATE_ACTION_MENU;
+    }
+    if (!adventure.startArea(menu.selection)) {
+      sound.playSadTone();              // locked: refuse, stay on the list
+      return STATE_ADVENTURE_SELECT;
+    }
+    sound.playClick();
+    advAreaName = adventure.currentArea()->name;
+    advRunHp = pet.getMaxHp();          // a run starts at full HP
+    advHealed = 0;
+    advSel = 0;
+    advMode = ADV_START;
+    return STATE_ADVENTURE_INTERLUDE;
+  }
+  return STATE_ADVENTURE_SELECT;
+}
+
+// ==========================================================================
+//  STATE_ADVENTURE_INTERLUDE  (before each fight, and the run's result)
+//  Drawn with the dialog panel: area name as the header, a short status line,
+//  and the options for the current mode.
+// ==========================================================================
+static const char* const kAdvStartOpts[] = { "Start", "Back" };
+static const char* const kAdvNextOpts[]  = { "Continue", "Retreat" };
+static const char* const kAdvOkOpt[]     = { "OK" };
+
+static int advOptionCount() {
+  return (advMode == ADV_START || advMode == ADV_NEXT) ? 2 : 1;
+}
+
+static void drawAdventureInterlude() {
+  static char text[96];
+  const char* const* opts = kAdvOkOpt;
+
+  if (advMode == ADV_START || advMode == ADV_NEXT) {
+    const Enemy* foe = adventure.currentEnemy();
+    const char* label = adventure.isBossBattle() ? "BOSS" : "Fight";
+    char heal[24] = "";
+    if (advMode == ADV_NEXT && advHealed > 0) snprintf(heal, sizeof(heal), "Won! +%d HP. ", advHealed);
+    snprintf(text, sizeof(text), "%s%s %d/%d: %s HP %d/%d",
+             heal, label, adventure.battleIndex() + 1, adventure.battleCount(),
+             foe ? foe->name : "?", advRunHp, pet.getMaxHp());
+    opts = (advMode == ADV_START) ? kAdvStartOpts : kAdvNextOpts;
+  } else if (advMode == ADV_CLEARED) {
+    snprintf(text, sizeof(text), "Area cleared!%s",
+             advNewUnlock ? " New area unlocked!" : "");
+  } else {
+    snprintf(text, sizeof(text), "Defeated by %s. Train and come back!", advFoeName);
+  }
+  display.drawDialog(advAreaName, text, opts, advOptionCount(), advSel);
+}
+
+static void adventureInterludeOnEnter() {
+  drawAdventureInterlude();
+}
+
+static GameState adventureInterludeOnUpdate() {
+  int n = advOptionCount();
+  if (n > 1 && (input.isLeftPressed() || input.isRightPressed())) {
+    sound.playClick();
+    advSel = (advSel + 1) % n;
+    drawAdventureInterlude();
+  }
+
+  if (!input.isOkPressed()) return STATE_ADVENTURE_INTERLUDE;
+  sound.playClick();
+
+  if (advMode == ADV_CLEARED || advMode == ADV_DEFEAT) return STATE_MAIN;
+
+  if (advSel == 0) {                    // Start / Continue
+    advFightPending = true;
+    return STATE_ADVENTURE_BATTLE;
+  }
+
+  // Back (before the first fight) or Retreat (mid-run).
+  adventure.endRun();
+  return (advMode == ADV_START) ? STATE_ADVENTURE_SELECT : STATE_MAIN;
 }
 
 // ==========================================================================
@@ -872,7 +1038,9 @@ static const StateHandler kStates[STATE_COUNT] = {
   /* STATE_NPC_DIALOG        @cat:dialog */ { npcDialogOnEnter,   npcDialogOnUpdate },
   /* STATE_TRAIN_RESULT      @cat:page   */ { trainResultOnEnter, trainResultOnUpdate },
   /* STATE_EGG_SELECT        @cat:system */ { eggSelectOnEnter,   eggSelectOnUpdate },
-  /* STATE_COMBAT            @cat:action */ { combatOnEnter,      combatOnUpdate },
+  /* STATE_ADVENTURE_BATTLE  @cat:action */ { adventureBattleOnEnter, adventureBattleOnUpdate },
+  /* STATE_ADVENTURE_SELECT  @cat:menu   */ { adventureSelectOnEnter, adventureSelectOnUpdate },
+  /* STATE_ADVENTURE_INTERLUDE @cat:page */ { adventureInterludeOnEnter, adventureInterludeOnUpdate },
 };
 
 // ==========================================================================
@@ -893,6 +1061,7 @@ void gsmSetup() {
   input.begin();
   sound.begin();
   pet.begin();
+  adventure.begin();
   display.begin();
   Serial.println("Display init done");
 

@@ -29,6 +29,9 @@ struct EvolutionReq {
   int minAgeDays;                 // require pet age     >= this (0 = ignore)
   int minHappiness;               // require happiness   >= this (0 = ignore)
   int minHunger;                  // require hunger      >= this (0 = ignore)
+  int minLevel;                   // require pet level   >= this (0 = ignore)
+  int minIntelligence;            // require pet INT     >= this (0 = ignore)
+  int minSpeed;                   // require pet SPD     >= this (0 = ignore)
 };
 
 // Digimon attribute type. Classic triangle (official): Vaccine beats Virus,
@@ -70,7 +73,29 @@ struct DigimonSprites {
   const uint16_t* const* attack;    int attackCount;
 
   const uint16_t* profile;          // single frame (may be nullptr)
+
+  // ---- Attack-frame box (COMBAT ONLY) -------------------------------------
+  // Attack art on the Digimon World sheets is far larger than the normal
+  // poses (e.g. 62x73 vs 22x26), so forcing it into `spriteSize` shrank it to
+  // ~37% and destroyed the pixels. Attack frames therefore get their OWN box,
+  // stored at their own aspect ratio. They are only ever drawn by
+  // drawCombatScene(), where the sprite is static -- so a different size here
+  // cannot disturb the wandering pet on the main screen.
+  // 0 = not generated yet; callers fall back to a `spriteSize` square.
+  int attackW;
+  int attackH;
 };
+
+// Attack-frame box for `d`, falling back to its uniform square size when the
+// sprite set predates per-action attack sizing.
+inline int digimonAttackW(const DigimonSprites* d) {
+  if (!d) return 0;
+  return d->attackW > 0 ? d->attackW : d->spriteSize;
+}
+inline int digimonAttackH(const DigimonSprites* d) {
+  if (!d) return 0;
+  return d->attackH > 0 ? d->attackH : d->spriteSize;
+}
 
 // Registered Digimon (add one extern per generated <name>Sprites set).
 extern const DigimonSprites DIGIMON_terriermon;
@@ -102,7 +127,6 @@ float typeMultiplier(DigimonType attacker, DigimonType defender);
 bool evolutionRequirementsMet(const EvolutionReq& req,
                               int maxHp, int ap, int dp,
                               int ageDays, int happiness, int hunger,
-                              int level, int intelligence, int speed,
-                              int level);
+                              int level, int intelligence, int speed);
 
 #endif

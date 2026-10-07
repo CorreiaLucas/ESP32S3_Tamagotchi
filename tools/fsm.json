@@ -5,88 +5,120 @@
       "category": "system",
       "onEnter": "mainOnEnter",
       "onUpdate": "mainOnUpdate",
-      "enterLine": 158,
-      "updateLine": 163
+      "enterLine": 209,
+      "updateLine": 214
     },
     {
       "id": "STATE_MENU",
       "category": "menu",
       "onEnter": "topMenuOnEnter",
       "onUpdate": "topMenuOnUpdate",
-      "enterLine": 248,
-      "updateLine": 253
+      "enterLine": 331,
+      "updateLine": 336
     },
     {
       "id": "STATE_ACTION_MENU",
       "category": "menu",
       "onEnter": "actionMenuOnEnter",
       "onUpdate": "actionMenuOnUpdate",
-      "enterLine": 302,
-      "updateLine": 307
+      "enterLine": 383,
+      "updateLine": 388
     },
     {
       "id": "STATE_DIGIMON_MENU",
       "category": "menu",
       "onEnter": "digimonMenuOnEnter",
       "onUpdate": "digimonMenuOnUpdate",
-      "enterLine": 339,
-      "updateLine": 344
+      "enterLine": 422,
+      "updateLine": 427
     },
     {
       "id": "STATE_STATS_PAGE",
       "category": "page",
       "onEnter": "statsPageOnEnter",
       "onUpdate": "statsPageOnUpdate",
-      "enterLine": 364,
-      "updateLine": 370
+      "enterLine": 447,
+      "updateLine": 455
     },
     {
       "id": "STATE_DIGIVOLUTION_PAGE",
       "category": "page",
       "onEnter": "digivolutionOnEnter",
       "onUpdate": "digivolutionOnUpdate",
-      "enterLine": 381,
-      "updateLine": 386
+      "enterLine": 466,
+      "updateLine": 472
     },
     {
       "id": "STATE_SETTINGS",
       "category": "menu",
       "onEnter": "settingsOnEnter",
       "onUpdate": "settingsOnUpdate",
-      "enterLine": 274,
-      "updateLine": 280
+      "enterLine": 354,
+      "updateLine": 360
     },
     {
       "id": "STATE_DEAD",
       "category": "system",
       "onEnter": "deadOnEnter",
       "onUpdate": "deadOnUpdate",
-      "enterLine": 507,
-      "updateLine": 516
+      "enterLine": 612,
+      "updateLine": 621
     },
     {
       "id": "STATE_MINIGAME",
       "category": "action",
       "onEnter": "minigameOnEnter",
       "onUpdate": "minigameOnUpdate",
-      "enterLine": 437,
-      "updateLine": 448
+      "enterLine": 542,
+      "updateLine": 553
     },
     {
       "id": "STATE_NPC_DIALOG",
       "category": "dialog",
       "onEnter": "npcDialogOnEnter",
       "onUpdate": "npcDialogOnUpdate",
-      "enterLine": 600,
-      "updateLine": 611
+      "enterLine": 718,
+      "updateLine": 729
     },
     {
       "id": "STATE_TRAIN_RESULT",
       "category": "page",
       "onEnter": "trainResultOnEnter",
       "onUpdate": "trainResultOnUpdate",
-      "enterLine": 649,
-      "updateLine": 653
+      "enterLine": 767,
+      "updateLine": 771
+    },
+    {
+      "id": "STATE_EGG_SELECT",
+      "category": "system",
+      "onEnter": "eggSelectOnEnter",
+      "onUpdate": "eggSelectOnUpdate",
+      "enterLine": 787,
+      "updateLine": 796
+    },
+    {
+      "id": "STATE_ADVENTURE_BATTLE",
+      "category": "action",
+      "onEnter": "adventureBattleOnEnter",
+      "onUpdate": "adventureBattleOnUpdate",
+      "enterLine": 861,
+      "updateLine": 872
+    },
+    {
+      "id": "STATE_ADVENTURE_SELECT",
+      "category": "menu",
+      "onEnter": "adventureSelectOnEnter",
+      "onUpdate": "adventureSelectOnUpdate",
+      "enterLine": 933,
+      "updateLine": 939
+    },
+    {
+      "id": "STATE_ADVENTURE_INTERLUDE",
+      "category": "page",
+      "onEnter": "adventureInterludeOnEnter",
+      "onUpdate": "adventureInterludeOnUpdate",
+      "enterLine": 998,
+      "updateLine": 1002
     }
   ],
   "transitions": [
@@ -94,6 +126,12 @@
       "from": "STATE_MAIN",
       "to": "STATE_DEAD",
       "trigger": "pet.isDead(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_MAIN",
+      "to": "STATE_MENU",
+      "trigger": "input.isOkPressed(",
       "via": "onUpdate"
     },
     {
@@ -122,14 +160,8 @@
     },
     {
       "from": "STATE_MENU",
-      "to": "STATE_NPC_DIALOG",
-      "trigger": "Talk -> village elder",
-      "via": "onUpdate"
-    },
-    {
-      "from": "STATE_MENU",
       "to": "STATE_SETTINGS",
-      "trigger": "case 3",
+      "trigger": "case 2",
       "via": "onUpdate"
     },
     {
@@ -160,6 +192,12 @@
       "from": "STATE_ACTION_MENU",
       "to": "STATE_MAIN",
       "trigger": "Clean",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ACTION_MENU",
+      "to": "STATE_ADVENTURE_SELECT",
+      "trigger": "Battle -> adventure area select",
       "via": "onUpdate"
     },
     {
@@ -200,14 +238,14 @@
     },
     {
       "from": "STATE_DIGIVOLUTION_PAGE",
-      "to": "STATE_DIGIMON_MENU",
-      "trigger": "input.isOkPressed(",
+      "to": "STATE_MAIN",
+      "trigger": "ok && req.target",
       "via": "onUpdate"
     },
     {
       "from": "STATE_DIGIVOLUTION_PAGE",
-      "to": "STATE_MAIN",
-      "trigger": "show the new Digimon immediately",
+      "to": "STATE_DIGIMON_MENU",
+      "trigger": "n == 0 || menu.selection == n",
       "via": "onUpdate"
     },
     {
@@ -224,7 +262,7 @@
     },
     {
       "from": "STATE_DEAD",
-      "to": "STATE_MAIN",
+      "to": "STATE_EGG_SELECT",
       "trigger": "menu.selection == 0",
       "via": "onUpdate"
     },
@@ -256,6 +294,48 @@
       "from": "STATE_TRAIN_RESULT",
       "to": "STATE_NPC_DIALOG",
       "trigger": "back to Pandamon (\"Another round?\")",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_EGG_SELECT",
+      "to": "STATE_MAIN",
+      "trigger": "input.isOkPressed(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_BATTLE",
+      "to": "STATE_ADVENTURE_INTERLUDE",
+      "trigger": "!combat.didWin(",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_BATTLE",
+      "to": "STATE_ADVENTURE_INTERLUDE",
+      "trigger": "advRunHp > maxHp",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_SELECT",
+      "to": "STATE_ACTION_MENU",
+      "trigger": "menu.selection == back",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_SELECT",
+      "to": "STATE_ADVENTURE_INTERLUDE",
+      "trigger": "!adventure.startArea(menu.selection",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_INTERLUDE",
+      "to": "STATE_MAIN",
+      "trigger": "advMode == ADV_CLEARED || advMode == ADV_DEFEAT",
+      "via": "onUpdate"
+    },
+    {
+      "from": "STATE_ADVENTURE_INTERLUDE",
+      "to": "STATE_ADVENTURE_BATTLE",
+      "trigger": "advSel == 0",
       "via": "onUpdate"
     }
   ],

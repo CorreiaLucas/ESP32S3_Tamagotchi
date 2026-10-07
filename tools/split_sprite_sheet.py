@@ -253,35 +253,75 @@ def _detect_sprite_band(rows, blobs, text_below_y=None, sprite_rows_n=None,
     return rows[:cut], rows[cut:]
 
 
+def _split_size_tiers(band):
+    """
+    Split band blobs into (large_tier, small_tier) by AREA. These DW sheets put
+    a row of BIG battle poses on top and a row of SMALL map sprites below; the
+    two form two clear area clusters. We sort by area and cut at the largest
+    relative gap in the upper half (so a handful of big poses separate cleanly
+    from the many small frames). If there's no strong gap (one uniform tier),
+    everything is "small" (walk/walkback/happy) and large is empty.
+    """
+    if not band:
+        return [], []
+    by_area = sorted(band, key=lambda b: b["area"])
+    areas = [b["area"] for b in by_area]
+    n = len(areas)
+    # Find the biggest ratio jump between consecutive areas, searched in the
+    # upper 60% (the big-pose boundary sits well above the median).
+    best_ratio, best_i = 1.0, None
+    for i in range(max(1, int(n * 0.4)), n):
+        prev = areas[i - 1] or 1
+        ratio = areas[i] / prev
+        if ratio > best_ratio:
+            best_ratio, best_i = ratio, i
+    # Require a real jump (big poses are ~2x+ the map sprites) to call it a
+    # two-tier sheet; otherwise treat all as the small tier.
+    if best_i is not None and best_ratio >= 1.8:
+        small = by_area[:best_i]
+        large = by_area[best_i:]
+    else:
+        small, large = by_area, []
+    # Return each tier in READING order (row-major), not area order.
+    large.sort(key=lambda b: (b["y0"], b["x0"]))
+    small.sort(key=lambda b: (b["y0"], b["x0"]))
+    return large, small
+
+
 def auto_name_sprites(blobs, prefix, mirror_thresh=0.72, drop_text=True,
-                      counts=None, order=("walk", "walkback", "happy", "attack"),
+                      counts=None, order=("walkback", "walk", "happy"),
                       want_profile=True, pair_mirrors=True,
                       text_below_y=None, sprite_rows_n=None):
     """
-    ROW-AWARE, COUNT-DRIVEN naming (deterministic -- no size guessing).
+    TWO-TIER, ROW-AWARE naming for Digimon World sheets (deterministic).
 
-    These ripped Digimon World sheets vary too much for a size-based "this blob
-    is attack vs walk" guess to be reliable (one sheet has a few big attack
-    frames + tidy walk rows; another has a dozen mirrored poses + the credit
-    text shattered into ~40 tiny word blobs). So instead:
+    Validated against the finished sets (InTraining/*, ToGenerate/*). These
+    sheets are laid out as:
+        row of BIG battle poses   (top)      -> attack1..N  (ALL of them)
+        row(s) of SMALL map frames (below)   -> walk/walkback/happy + profile
+        credit text + ripper avatar (bottom) -> dropped (_To_Remove_)
 
-      1. Group blobs into visual ROWS, detect the TOP sprite band, and send
-         everything BELOW it (credit text + ripper avatar) to _To_Remove_ by
-         POSITION -- robust even when text fragments into many small blobs.
-      2. Within the sprite band, take blobs in reading order and assign names
-         using the COUNTS the caller passes (e.g. walk=3, walkback=3, happy=3,
-         attack=2), in `order`. You stay in control of how many of each.
-      3. `profile` = the single most-square small blob in the band (if
-         want_profile). Leftover band blobs beyond the requested counts are
-         flagged _To_Remove_ (likely redundant mirror facings / map sprites).
+    Steps:
+      1. Group blobs into rows; drop everything BELOW the top sprite band
+         (text/credit) by POSITION -- robust even when text fragments into many
+         tiny per-word blobs.
+      2. Split the band into a LARGE tier and a SMALL tier by an area gap.
+         Large tier -> attack1..N in reading order (every big pose; or capped at
+         counts["attack"] if a positive value is passed).
+      3. SMALL tier: profile = most-square frame; then walk/walkback as MIRROR
+         PAIRS (one facing each), then happy, by the counts passed. Leftover
+         small frames (extra map directions) -> _To_Remove_.
 
-    `counts` is a dict like {"walk":3,"walkback":3,"happy":3,"attack":2}. A
-    missing/zero action is simply skipped. `blobs` dicts carry
-    {idx, crop, w, h, area, y0, x0}. Returns (blob, name, reason) in input order.
+    `counts` keys: walk, walkback, happy (default 3/3/3), and optional attack
+    (0 = take ALL large-tier poses; >0 = cap). Returns (blob, name, reason) in
+    input order.
     """
     if not blobs:
         return []
     counts = dict(counts or {})
+    counts.setdefault("walk", 3)
+    counts.setdefault("walkback", 3)
+    counts.setdefault("happy", 3)
 
     assignments = {}   # blob idx -> (name, reason)
 
@@ -297,81 +337,49 @@ def auto_name_sprites(blobs, prefix, mirror_thresh=0.72, drop_text=True,
         for b in r:
             assignments[b["idx"]] = ("To_Remove", "below sprite band (text/credit)")
 
-    band = [b for r in sprite_rows for b in r]   # reading order (row-major)
+    band = [b for r in sprite_rows for b in r]
 
-    # ---- 2. profile: most-square blob in the band (prefer smaller/rightmost) ----
-    if want_profile and band:
-        heights = sorted(b["h"] for b in band)
-        med_h = heights[len(heights) // 2] or 1
-        small = [b for b in band if b["h"] <= med_h * 1.2] or band
-        profile_blob = max(small, key=lambda b: (_squareness(b["w"], b["h"]), b["x0"]))
-        assignments[profile_blob["idx"]] = ("profile", "most-square band blob")
+    # ---- 2. size tiers: large = attack poses, small = walk/walkback/happy --
+    large, small = _split_size_tiers(band)
 
-    remaining = [b for b in band if b["idx"] not in assignments]
+    attack_cap = int(counts.get("attack", 0))
+    for i, b in enumerate(large, start=1):
+        if attack_cap and i > attack_cap:
+            assignments[b["idx"]] = ("To_Remove", "extra large pose beyond --attack cap")
+        else:
+            assignments[b["idx"]] = (f"attack{i}", "large top-row pose")
 
-    # ---- 3. assign the requested counts ------------------------------------
-    # KEY INSIGHT for these sheets: the band is usually made of MIRROR PAIRS
-    # (the same pose facing left and right), often laid out adjacently. "walk"
-    # and "walkback" are precisely those two facings. So when both are wanted
-    # and pair_mirrors is on, we PAIR FIRST -- group the band into mirror pairs
-    # and split each pair across walk{i}/walkback{i} -- instead of taking the
-    # first N band blobs as walk (which would grab BOTH halves of a pair as
-    # walk1/walk2 and strand their mirrors).
-    want_walk = int(counts.get("walk", 0)) if pair_mirrors else 0
-    want_back = int(counts.get("walkback", 0)) if pair_mirrors else 0
-    npairs = min(want_walk, want_back)
-    if npairs > 0:
-        used = set()
-        made = 0
-        for b in remaining:
-            if made >= npairs or b["idx"] in used or b["idx"] in assignments:
-                continue
-            best, best_sim = None, mirror_thresh
-            for c in remaining:
-                if c["idx"] == b["idx"] or c["idx"] in used or c["idx"] in assignments:
-                    continue
-                sim = _mirror_similarity(b["crop"], c["crop"])
-                if sim >= best_sim:
-                    best_sim, best = sim, c
-            if best is not None:
-                made += 1
-                used.add(b["idx"]); used.add(best["idx"])
-                assignments[b["idx"]]   = (f"walk{made}", "mirror pair (facing A)")
-                assignments[best["idx"]] = (f"walkback{made}", "mirror pair (facing B)")
-        # Decrement the pair-satisfied counts; any shortfall is filled in reading
-        # order by the generic pass below (so single-facing art still works).
-        counts = dict(counts)
-        counts["walk"] = max(0, want_walk - made)
-        counts["walkback"] = max(0, want_back - made)
-        # Keep walk/walkback numbering continuing after the pairs we made.
-        start_at = {"walk": made + 1, "walkback": made + 1}
-    else:
-        start_at = {}
+    # ---- 3a. profile: most-square frame in the SMALL tier ------------------
+    small_unassigned = [b for b in small if b["idx"] not in assignments]
+    if want_profile and small_unassigned:
+        profile_blob = max(small_unassigned,
+                           key=lambda b: (_squareness(b["w"], b["h"]), b["x0"]))
+        assignments[profile_blob["idx"]] = ("profile", "most-square small frame")
 
-    # Generic reading-order fill for every action (and any walk/walkback left
-    # over after pairing). Numbering continues from start_at where set.
-    remaining = [b for b in band if b["idx"] not in assignments]
-    counters = dict(start_at)
+    # ---- 3b. SMALL tier in READING ORDER (left-to-right, top-to-bottom) -----
+    # The small map-sprite row is already laid out in a fixed order, so we just
+    # consume it sequentially per `order` (default walkback,walk,happy) rather
+    # than trying to mirror-match (which mis-slotted some frames). `small` is
+    # already in reading order from _split_size_tiers.
     for action in order:
+        if action == "attack":
+            continue   # attack comes from the LARGE tier, never small frames
         want = int(counts.get(action, 0))
         if want <= 0:
             continue
         taken = 0
-        nxt = counters.get(action, 1)
-        for c in remaining:
+        for c in small:
             if taken >= want:
                 break
             if c["idx"] in assignments:
                 continue
             taken += 1
-            assignments[c["idx"]] = (f"{action}{nxt}", f"{action} (reading order)")
-            nxt += 1
-        counters[action] = nxt
+            assignments[c["idx"]] = (f"{action}{taken}", f"{action} (small, reading order)")
 
-    # ---- leftover band blobs beyond requested counts -> flag ----------------
+    # ---- leftover SMALL frames (extra map directions) -> flag --------------
     for b in band:
         if b["idx"] not in assignments:
-            assignments[b["idx"]] = ("To_Remove", "band blob beyond requested counts")
+            assignments[b["idx"]] = ("To_Remove", "extra small/map frame")
 
     # ---- build result + sequential To_Remove numbering ---------------------
     result = []
@@ -468,18 +476,16 @@ def main():
     ap.add_argument("--happy", type=int, default=3,
                      help="[--auto-name] How many HAPPY frames to name (default 3).")
     ap.add_argument("--attack", type=int, default=0,
-                     help="[--auto-name] How many ATTACK frames to name (default 0 -- set it per "
-                          "sheet, e.g. --attack 2).")
+                     help="[--auto-name] Cap on ATTACK frames (the big top-row poses). 0 (default) "
+                          "= name ALL of them attack1..N; a positive value caps it and flags the "
+                          "rest _To_Remove_.")
     ap.add_argument("--profile", type=int, default=1,
                      help="[--auto-name] 1 to name one profile sprite (most-square band blob), "
                           "0 to skip (default 1).")
-    ap.add_argument("--order", default="walk,walkback,happy,attack",
-                     help="[--auto-name] Comma-separated order the counts are consumed from the "
-                          "band in reading order (default walk,walkback,happy,attack).")
-    ap.add_argument("--mirror-thresh", type=float, default=0.72,
-                     help="[--auto-name] Min silhouette-IoU (0..1) to pair a WALK frame with its "
-                          "left/right MIRROR as the matching WALKBACK (default 0.72). Lower = pair "
-                          "more loosely; raise = require closer mirrors.")
+    ap.add_argument("--order", default="walkback,walk,happy",
+                     help="[--auto-name] Order the SMALL-tier frames are consumed left-to-right "
+                          "(default walkback,walk,happy -- matches the DW map-sprite row). attack "
+                          "always comes from the large top row and is ignored here.")
     ap.add_argument("--text-below", type=int, default=None, metavar="Y",
                      help="[--auto-name] Force every blob whose TOP is at/below pixel row Y to "
                           "<prefix>_To_Remove_NN. Deterministic override for when the automatic "
@@ -494,6 +500,11 @@ def main():
                           "<Name>.png the sheet, and the subfolder itself the output dir. "
                           "All other flags (--auto-name, --walk, ...) apply to every subfolder. "
                           "Ignores the positional sheet / --prefix / --out when set.")
+    ap.add_argument("--clean", action="store_true",
+                     help="Before writing, delete existing <prefix>_*.png and _preview.png in the "
+                          "output folder so a re-run starts fresh (removes stale output from a "
+                          "previous run, e.g. old _To_Remove_ files). Never touches the source "
+                          "sheet or other files.")
     args = ap.parse_args()
 
     exclude_boxes = []
@@ -544,6 +555,24 @@ def process_sheet(sheet, out, prefix, args, exclude_boxes):
     and batch modes."""
     os.makedirs(out, exist_ok=True)
 
+    # Optional: wipe prior output (<prefix>_*.png + _preview.png) so a re-run
+    # starts fresh. Never removes the source sheet or unrelated files.
+    if args.clean:
+        sheet_base = os.path.basename(sheet).lower()
+        removed = 0
+        for f in os.listdir(out):
+            low = f.lower()
+            if low == sheet_base:
+                continue   # never delete the source sheet
+            if low == "_preview.png" or low.startswith(prefix.lower() + "_"):
+                try:
+                    os.remove(os.path.join(out, f))
+                    removed += 1
+                except OSError:
+                    pass
+        if removed:
+            print(f"  --clean: removed {removed} stale output file(s).")
+
     im = Image.open(sheet).convert("RGB")
     arr = np.array(im)
 
@@ -587,7 +616,6 @@ def process_sheet(sheet, out, prefix, args, exclude_boxes):
                   "happy": args.happy, "attack": args.attack}
         order = tuple(s.strip() for s in args.order.split(",") if s.strip())
         named = auto_name_sprites(blobs, prefix, drop_text=drop_text,
-                                  mirror_thresh=args.mirror_thresh,
                                   counts=counts, order=order,
                                   want_profile=(args.profile > 0),
                                   text_below_y=args.text_below,

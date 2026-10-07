@@ -12,36 +12,6 @@
 // ==========================================================================
 
 // --------------------------------------------------------------------------
-//  "intro_jijimon" — a plain branching conversation with no side effects.
-// --------------------------------------------------------------------------
-// @dialog-script-begin: intro_jijimon
-static const DialogNode kIntroJijimon[] = {
-  // @node greet
-  { "Jijimon", "Ah, a new tamer! Are you ready to train?",
-    { { "Yes!", 1, DLG_NONE }, { "Not yet", 2, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE } } },
-
-  // @node encourage
-  { "Jijimon", "Splendid! Feed and train your Digimon well.",
-    { { "I will", 3, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE } } },
-
-  // @node reassure
-  { "Jijimon", "Take your time. Come back when you feel ready.",
-    { { "Okay", 3, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE } } },
-
-  // @node farewell
-  { "Jijimon", "May your bond grow strong. Farewell!",
-    { { "Bye", DIALOG_END, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE }, { nullptr, DIALOG_END, DLG_NONE } } },
-};
-// @dialog-script-end
-
-const DialogScript DIALOG_intro_jijimon = {
-  "intro_jijimon", kIntroJijimon,
-  (int)(sizeof(kIntroJijimon) / sizeof(kIntroJijimon[0])),
-  0,        // startNode
-  -1        // refusedNode: none (this script has no gated actions)
-};
-
-// --------------------------------------------------------------------------
 //  "trainer_pandamon" — the TRAINING NPC that replaces the old Training menu.
 //
 //  Node 0 is the drill menu; each choice carries a DLG_TRAIN_* effect and

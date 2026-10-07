@@ -2,112 +2,11 @@
   "source": "src/DialogManager.cpp",
   "scripts": [
     {
-      "name": "intro_jijimon",
-      "nodes": [
-        {
-          "speaker": "Jijimon",
-          "text": "Ah, a new tamer! Are you ready to train?",
-          "options": [
-            {
-              "label": "Yes!",
-              "next": 1,
-              "action": "DLG_NONE"
-            },
-            {
-              "label": "Not yet",
-              "next": 2,
-              "action": "DLG_NONE"
-            }
-          ],
-          "index": 0,
-          "id": "greet"
-        },
-        {
-          "speaker": "Jijimon",
-          "text": "Splendid! Feed and train your Digimon well.",
-          "options": [
-            {
-              "label": "I will",
-              "next": 3,
-              "action": "DLG_NONE"
-            }
-          ],
-          "index": 1,
-          "id": "encourage"
-        },
-        {
-          "speaker": "Jijimon",
-          "text": "Take your time. Come back when you feel ready.",
-          "options": [
-            {
-              "label": "Okay",
-              "next": 3,
-              "action": "DLG_NONE"
-            }
-          ],
-          "index": 2,
-          "id": "reassure"
-        },
-        {
-          "speaker": "Jijimon",
-          "text": "May your bond grow strong. Farewell!",
-          "options": [
-            {
-              "label": "Bye",
-              "next": -1,
-              "action": "DLG_NONE"
-            }
-          ],
-          "index": 3,
-          "id": "farewell"
-        }
-      ],
-      "edges": [
-        {
-          "from": 0,
-          "label": "Yes!",
-          "action": "DLG_NONE",
-          "end": false,
-          "to": 1
-        },
-        {
-          "from": 0,
-          "label": "Not yet",
-          "action": "DLG_NONE",
-          "end": false,
-          "to": 2
-        },
-        {
-          "from": 1,
-          "label": "I will",
-          "action": "DLG_NONE",
-          "end": false,
-          "to": 3
-        },
-        {
-          "from": 2,
-          "label": "Okay",
-          "action": "DLG_NONE",
-          "end": false,
-          "to": 3
-        },
-        {
-          "from": 3,
-          "label": "Bye",
-          "action": "DLG_NONE",
-          "end": true,
-          "to": null
-        }
-      ],
-      "startNode": 0,
-      "refusedNode": -1
-    },
-    {
       "name": "trainer_pandamon",
       "nodes": [
         {
           "speaker": "Pandamon",
-          "text": "Training time! Which drill today?",
+          "text": "Pick a drill:",
           "options": [
             {
               "label": "Strength",
@@ -123,6 +22,16 @@
               "label": "Stamina",
               "next": 1,
               "action": "DLG_TRAIN_HP"
+            },
+            {
+              "label": "Intellect",
+              "next": 1,
+              "action": "DLG_TRAIN_INT"
+            },
+            {
+              "label": "Agility",
+              "next": 1,
+              "action": "DLG_TRAIN_SPD"
             }
           ],
           "index": 0,
@@ -179,6 +88,20 @@
           "from": 0,
           "label": "Stamina",
           "action": "DLG_TRAIN_HP",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 0,
+          "label": "Intellect",
+          "action": "DLG_TRAIN_INT",
+          "end": false,
+          "to": 1
+        },
+        {
+          "from": 0,
+          "label": "Agility",
+          "action": "DLG_TRAIN_SPD",
           "end": false,
           "to": 1
         },
